@@ -41,4 +41,6 @@ public class Operador {
     private String cpf;
     @JsonProperty("dataCadastro")
     private Timestamp dataCadastro;
+    @JsonProperty("userId")
+    private String userId; // Vinculação com Firebase Auth / userProfiles
 }

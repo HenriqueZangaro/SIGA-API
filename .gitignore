@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Firebase ###
+src/main/resources/firebase-credentials.json
+
+### Pasta do projeto frontend ###
+FAZENDAS/
