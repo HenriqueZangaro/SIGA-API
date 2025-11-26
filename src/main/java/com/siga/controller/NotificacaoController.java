@@ -1,140 +1,267 @@
 package com.siga.controller;
 
+import com.siga.dto.CriarNotificacaoRequest;
+import com.siga.dto.NotificacaoBatchRequest;
+import com.siga.model.Notificacao;
+import com.siga.service.AuthService;
 import com.siga.service.NotificacaoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/notificacoes")
 @CrossOrigin(origins = "*")
 public class NotificacaoController {
-    
+
     private final NotificacaoService notificacaoService;
-    
+    private final AuthService authService;
+
     @Autowired
-    public NotificacaoController(NotificacaoService notificacaoService) {
+    public NotificacaoController(NotificacaoService notificacaoService, AuthService authService) {
         this.notificacaoService = notificacaoService;
+        this.authService = authService;
     }
-    
-    @PostMapping("/trabalho/{trabalhoId}")
-    public ResponseEntity<Map<String, String>> notificarNovoTrabalho(
-            @PathVariable String trabalhoId,
-            @RequestParam(required = false) String proprietarioId) {
-        
+
+    /**
+     * GET /api/v1/notificacoes
+     * Lista todas as notificações do usuário autenticado
+     */
+    @GetMapping
+    public ResponseEntity<?> listarNotificacoes(@RequestHeader("X-User-UID") String uid) {
         try {
-            System.out.println("🌐 Controller: Iniciando notificação assíncrona para trabalho: " + trabalhoId);
-            
-            String proprietario = proprietarioId != null ? proprietarioId : "MqfPVwIC7ayojtQ1HfoM";
-            
-            notificacaoService.notificarNovoTrabalho(proprietario, trabalhoId);
-            
-            Map<String, String> response = new HashMap<>();
-            response.put("status", "PROCESSANDO");
-            response.put("message", "Notificação sendo enviada em segundo plano");
-            response.put("trabalhoId", trabalhoId);
-            response.put("proprietarioId", proprietario);
-            response.put("estimatedTime", "5 segundos");
-            response.put("checkStatusUrl", "/api/v1/notificacoes/status/trabalho/" + trabalhoId);
-            
-            System.out.println("✅ Controller: Notificação assíncrona iniciada");
-            return ResponseEntity.accepted().body(response);
-            
+            System.out.println("🌐 Controller: GET /api/v1/notificacoes");
+            System.out.println("🔐 UID: " + uid);
+
+            List<Notificacao> notificacoes = notificacaoService.getByUserId(uid);
+
+            System.out.println("✅ Controller: Retornando " + notificacoes.size() + " notificações");
+            return ResponseEntity.ok(notificacoes);
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ Controller: Erro: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
         } catch (Exception e) {
-            System.err.println("❌ Controller: Erro ao iniciar notificação: " + e.getMessage());
-            
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("status", "ERRO");
-            errorResponse.put("message", "Erro ao iniciar notificação: " + e.getMessage());
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            System.err.println("❌ Controller: Erro interno: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("erro", "Erro interno do servidor"));
         }
     }
-    
-    @PostMapping("/trabalho/{trabalhoId}/atualizacao")
-    public ResponseEntity<Map<String, String>> notificarAtualizacaoTrabalho(
-            @PathVariable String trabalhoId,
-            @RequestParam String novoStatus,
-            @RequestParam(required = false) String proprietarioId) {
-        
+
+    /**
+     * GET /api/v1/notificacoes/nao-lidas
+     * Lista notificações não lidas do usuário
+     */
+    @GetMapping("/nao-lidas")
+    public ResponseEntity<?> listarNaoLidas(@RequestHeader("X-User-UID") String uid) {
         try {
-            System.out.println("🌐 Controller: Iniciando notificação de atualização para trabalho: " + trabalhoId);
-            
-            String proprietario = proprietarioId != null ? proprietarioId : "MqfPVwIC7ayojtQ1HfoM";
-            
-            notificacaoService.notificarAtualizacaoTrabalho(proprietario, trabalhoId, novoStatus);
-            
-            Map<String, String> response = new HashMap<>();
-            response.put("status", "PROCESSANDO");
-            response.put("message", "Notificação de atualização sendo enviada");
-            response.put("trabalhoId", trabalhoId);
-            response.put("novoStatus", novoStatus);
-            response.put("proprietarioId", proprietario);
-            response.put("estimatedTime", "3 segundos");
-            
-            return ResponseEntity.accepted().body(response);
-            
+            System.out.println("🌐 Controller: GET /api/v1/notificacoes/nao-lidas");
+            System.out.println("🔐 UID: " + uid);
+
+            List<Notificacao> notificacoes = notificacaoService.getNaoLidasByUserId(uid);
+
+            System.out.println("✅ Controller: Retornando " + notificacoes.size() + " notificações não lidas");
+            return ResponseEntity.ok(notificacoes);
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ Controller: Erro: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
         } catch (Exception e) {
-            System.err.println("❌ Controller: Erro ao iniciar notificação de atualização: " + e.getMessage());
-            
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("status", "ERRO");
-            errorResponse.put("message", "Erro ao iniciar notificação de atualização");
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            System.err.println("❌ Controller: Erro interno: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("erro", "Erro interno do servidor"));
         }
     }
-    
-    @PostMapping("/maquina/{maquinaId}/manutencao")
-    public ResponseEntity<Map<String, String>> notificarManutencaoMaquina(
-            @PathVariable String maquinaId,
-            @RequestParam String tipoManutencao,
-            @RequestParam(required = false) String proprietarioId) {
-        
+
+    /**
+     * GET /api/v1/notificacoes/count
+     * Conta notificações não lidas do usuário
+     */
+    @GetMapping("/count")
+    public ResponseEntity<?> contarNaoLidas(@RequestHeader("X-User-UID") String uid) {
         try {
-            System.out.println("🌐 Controller: Iniciando notificação de manutenção para máquina: " + maquinaId);
-            
-            String proprietario = proprietarioId != null ? proprietarioId : "MqfPVwIC7ayojtQ1HfoM";
-            
-            notificacaoService.notificarManutencaoMaquina(proprietario, maquinaId, tipoManutencao);
-            
-            Map<String, String> response = new HashMap<>();
-            response.put("status", "PROCESSANDO");
-            response.put("message", "Notificação de manutenção sendo enviada");
-            response.put("maquinaId", maquinaId);
-            response.put("tipoManutencao", tipoManutencao);
-            response.put("proprietarioId", proprietario);
-            response.put("estimatedTime", "2 segundos");
-            
-            return ResponseEntity.accepted().body(response);
-            
+            System.out.println("🌐 Controller: GET /api/v1/notificacoes/count");
+            System.out.println("🔐 UID: " + uid);
+
+            long count = notificacaoService.countNaoLidas(uid);
+
+            System.out.println("✅ Controller: " + count + " notificações não lidas");
+            return ResponseEntity.ok(Map.of("count", count));
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ Controller: Erro: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
         } catch (Exception e) {
-            System.err.println("❌ Controller: Erro ao iniciar notificação de manutenção: " + e.getMessage());
-            
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("status", "ERRO");
-            errorResponse.put("message", "Erro ao iniciar notificação de manutenção");
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            System.err.println("❌ Controller: Erro interno: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("erro", "Erro interno do servidor"));
         }
     }
-    
-    @GetMapping("/status/{tipo}/{id}")
-    public ResponseEntity<Map<String, String>> verificarStatusNotificacao(
-            @PathVariable String tipo,
+
+    /**
+     * POST /api/v1/notificacoes
+     * Cria uma nova notificação
+     */
+    @PostMapping
+    public ResponseEntity<?> criarNotificacao(
+            @RequestHeader("X-User-UID") String uid,
+            @RequestBody CriarNotificacaoRequest request) {
+        try {
+            System.out.println("🌐 Controller: POST /api/v1/notificacoes");
+            System.out.println("🔐 UID: " + uid);
+            System.out.println("📝 Título: " + request.getTitulo());
+
+            Notificacao notificacao = new Notificacao();
+            notificacao.setUserId(request.getUserId());
+            notificacao.setTitulo(request.getTitulo());
+            notificacao.setMensagem(request.getMensagem());
+            notificacao.setTipo(request.getTipo());
+            notificacao.setCategoria(request.getCategoria());
+            notificacao.setDados(request.getDados());
+
+            Notificacao criada = notificacaoService.criar(notificacao);
+
+            System.out.println("✅ Controller: Notificação criada");
+            return ResponseEntity.status(HttpStatus.CREATED).body(criada);
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ Controller: Erro: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("❌ Controller: Erro interno: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("erro", "Erro interno do servidor"));
+        }
+    }
+
+    /**
+     * PUT /api/v1/notificacoes/{id}/lida
+     * Marca uma notificação como lida
+     */
+    @PutMapping("/{id}/lida")
+    public ResponseEntity<?> marcarComoLida(
+            @RequestHeader("X-User-UID") String uid,
             @PathVariable String id) {
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "CONCLUIDO");
-        response.put("message", "Notificação enviada com sucesso");
-        response.put("tipo", tipo);
-        response.put("id", id);
-        response.put("timestamp", java.time.Instant.now().toString());
-        
-        return ResponseEntity.ok(response);
+        try {
+            System.out.println("🌐 Controller: PUT /api/v1/notificacoes/" + id + "/lida");
+            System.out.println("🔐 UID: " + uid);
+
+            notificacaoService.marcarComoLida(id, uid);
+
+            System.out.println("✅ Controller: Notificação marcada como lida");
+            return ResponseEntity.ok(Map.of("mensagem", "Notificação marcada como lida"));
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ Controller: Erro: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("❌ Controller: Erro interno: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("erro", "Erro interno do servidor"));
+        }
+    }
+
+    /**
+     * PUT /api/v1/notificacoes/lidas
+     * Marca todas as notificações do usuário como lidas
+     */
+    @PutMapping("/lidas")
+    public ResponseEntity<?> marcarTodasComoLidas(@RequestHeader("X-User-UID") String uid) {
+        try {
+            System.out.println("🌐 Controller: PUT /api/v1/notificacoes/lidas");
+            System.out.println("🔐 UID: " + uid);
+
+            int atualizadas = notificacaoService.marcarTodasComoLidas(uid);
+
+            System.out.println("✅ Controller: " + atualizadas + " notificações marcadas como lidas");
+            return ResponseEntity.ok(Map.of(
+                    "mensagem", "Todas as notificações foram marcadas como lidas",
+                    "atualizadas", atualizadas
+            ));
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ Controller: Erro: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("❌ Controller: Erro interno: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("erro", "Erro interno do servidor"));
+        }
+    }
+
+    /**
+     * DELETE /api/v1/notificacoes/{id}
+     * Deleta uma notificação
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deletarNotificacao(
+            @RequestHeader("X-User-UID") String uid,
+            @PathVariable String id) {
+        try {
+            System.out.println("🌐 Controller: DELETE /api/v1/notificacoes/" + id);
+            System.out.println("🔐 UID: " + uid);
+
+            notificacaoService.deletar(id, uid);
+
+            System.out.println("✅ Controller: Notificação deletada");
+            return ResponseEntity.ok(Map.of("mensagem", "Notificação deletada com sucesso"));
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ Controller: Erro: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("❌ Controller: Erro interno: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("erro", "Erro interno do servidor"));
+        }
+    }
+
+    /**
+     * POST /api/v1/notificacoes/batch
+     * Envia notificações para múltiplos usuários (somente admin)
+     */
+    @PostMapping("/batch")
+    public ResponseEntity<?> enviarBatch(
+            @RequestHeader("X-User-UID") String uid,
+            @RequestBody NotificacaoBatchRequest request) {
+        try {
+            System.out.println("🌐 Controller: POST /api/v1/notificacoes/batch");
+            System.out.println("🔐 UID: " + uid);
+
+            // Verificar se é admin
+            if (!authService.isAdmin(uid)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("erro", "Apenas administradores podem enviar notificações em batch"));
+            }
+
+            Notificacao notificacao = new Notificacao();
+            notificacao.setTitulo(request.getTitulo());
+            notificacao.setMensagem(request.getMensagem());
+            notificacao.setTipo(request.getTipo());
+            notificacao.setCategoria(request.getCategoria());
+            notificacao.setDados(request.getDados());
+
+            int enviadas = notificacaoService.criarBatch(request.getUserIds(), notificacao);
+
+            System.out.println("✅ Controller: " + enviadas + " notificações enviadas");
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "mensagem", "Notificações enviadas",
+                    "enviadas", enviadas
+            ));
+
+        } catch (RuntimeException e) {
+            System.err.println("❌ Controller: Erro: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("❌ Controller: Erro interno: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("erro", "Erro interno do servidor"));
+        }
     }
 }

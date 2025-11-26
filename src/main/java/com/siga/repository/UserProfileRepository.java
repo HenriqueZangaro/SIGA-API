@@ -119,5 +119,37 @@ public class UserProfileRepository {
             throw new RuntimeException("Erro ao buscar operadores", e);
         }
     }
+
+    /**
+     * Busca todos os UserProfiles por role
+     */
+    public List<UserProfile> findAllByRole(String role) {
+        try {
+            List<QueryDocumentSnapshot> documents = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("role", role)
+                    .get()
+                    .get()
+                    .getDocuments();
+            
+            List<UserProfile> users = new ArrayList<>();
+            for (QueryDocumentSnapshot document : documents) {
+                try {
+                    UserProfile userProfile = document.toObject(UserProfile.class);
+                    if (userProfile != null) {
+                        users.add(userProfile);
+                    }
+                } catch (Exception e) {
+                    System.err.println("❌ Erro ao deserializar UserProfile " + document.getId() + ": " + e.getMessage());
+                }
+            }
+            
+            System.out.println("✅ Repository: Encontrados " + users.size() + " usuários com role '" + role + "'");
+            return users;
+            
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("❌ Erro ao buscar usuários por role: " + e.getMessage());
+            throw new RuntimeException("Erro ao buscar usuários por role", e);
+        }
+    }
 }
 

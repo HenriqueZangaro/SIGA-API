@@ -18,6 +18,7 @@ API RESTful completa para gerenciamento de fazendas com suporte a registro de po
    - [Safras](#safras)
    - [Proprietários](#proprietários)
    - [**🆕 Registro de Pontos**](#-registro-de-pontos)
+   - [**🆕 Chamados**](#-chamados-suportemanutenção)
    - [**🆕 Autenticação**](#-autenticação)
 5. [Como Executar](#-como-executar)
 6. [Configuração Firebase](#-configuração-firebase)
@@ -36,6 +37,7 @@ A **SIGA API** é uma solução completa para gestão de fazendas que oferece:
 - ✅ **Registro de Trabalhos** - Acompanhamento de atividades agrícolas
 - ✅ **Controle de Safras** - Gestão de safras por proprietário
 - ✅ **🆕 Registro de Pontos** - Sistema completo de ponto eletrônico para operadores
+- ✅ **🆕 Chamados de Suporte** - Sistema de chamados com upload de fotos
 - ✅ **🆕 Autenticação Firebase** - Login seguro com Firebase Auth
 - ✅ **Multi-tenant** - Suporte a múltiplos proprietários
 - ✅ **Sincronização em tempo real** - Dados sempre atualizados
@@ -67,13 +69,18 @@ src/main/java/com/siga/
 │   ├── Safra.java
 │   ├── Proprietario.java
 │   ├── 🆕 Ponto.java              # Sistema de pontos
+│   ├── 🆕 Chamado.java            # Sistema de chamados
 │   ├── 🆕 UserProfile.java        # Perfil de usuário
 │   └── 🆕 OperadorAuth.java       # Autenticação
 │
 ├── dto/                            # Data Transfer Objects
 │   ├── 🆕 RegistroPontoRequest.java
 │   ├── 🆕 StatusOperadorResponse.java
-│   └── 🆕 EstatisticasPontosResponse.java
+│   ├── 🆕 EstatisticasPontosResponse.java
+│   ├── 🆕 CriarChamadoRequest.java
+│   ├── 🆕 AtualizarChamadoRequest.java
+│   ├── 🆕 AdicionarObservacaoRequest.java
+│   └── 🆕 FotoUploadResponse.java
 │
 ├── repository/                     # Acesso ao Firestore
 │   ├── FazendaRepository.java
@@ -84,6 +91,7 @@ src/main/java/com/siga/
 │   ├── SafraRepository.java
 │   ├── ProprietarioRepository.java
 │   ├── 🆕 PontoRepository.java
+│   ├── 🆕 ChamadoRepository.java
 │   └── 🆕 UserProfileRepository.java
 │
 ├── service/                        # Lógica de negócio
@@ -97,6 +105,8 @@ src/main/java/com/siga/
 │   ├── NotificacaoService.java
 │   ├── SincronizacaoService.java
 │   ├── 🆕 PontoService.java       # Serviço de pontos
+│   ├── 🆕 ChamadoService.java     # Serviço de chamados
+│   ├── 🆕 FotoService.java        # Upload de fotos
 │   └── 🆕 AuthService.java        # Serviço de autenticação
 │
 ├── controller/                     # Endpoints REST
@@ -110,6 +120,7 @@ src/main/java/com/siga/
 │   ├── NotificacaoController.java
 │   ├── SincronizacaoController.java
 │   ├── 🆕 PontoController.java    # Endpoints de pontos
+│   ├── 🆕 ChamadoController.java  # Endpoints de chamados
 │   └── 🆕 AuthController.java     # Endpoints de autenticação
 │
 ├── config/
@@ -487,6 +498,277 @@ X-User-UID: firebase_uid_abc123
   "mensagem": "Token válido"
 }
 ```
+
+---
+
+## 🆕 CHAMADOS (SUPORTE/MANUTENÇÃO)
+
+Sistema completo de chamados para operadores reportarem problemas com suporte a:
+- ✅ Diferentes tipos (manutenção, problema, suporte, outro)
+- ✅ Níveis de prioridade (baixa, média, alta, urgente)
+- ✅ Upload de fotos
+- ✅ Captura de geolocalização
+- ✅ Sistema de observações/comentários
+- ✅ Controle de status (aberto, em_andamento, resolvido, cancelado)
+
+### 📍 Endpoints de Chamados
+
+#### 1. **Criar Chamado**
+```http
+POST /api/v1/chamados
+```
+
+**Headers:**
+```
+X-User-UID: firebase_uid_abc123
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "titulo": "Problema na colhedeira C-120",
+  "descricao": "A colhedeira está apresentando falha no motor",
+  "tipo": "manutencao",  // manutencao, problema, suporte, outro
+  "prioridade": "alta",   // baixa, media, alta, urgente
+  "localizacao": {
+    "latitude": -23.550520,
+    "longitude": -46.633308,
+    "accuracy": 10.5,
+    "timestamp": 1700000000000
+  },
+  "fazendaId": "faz_001",
+  "fazendaNome": "Fazenda São José",
+  "talhaoId": "tal_001",
+  "talhaoNome": "Talhão A",
+  "maquinaId": "maq_001",
+  "maquinaNome": "Colhedeira C-120",
+  "sincronizado": true
+}
+```
+
+**Response:**
+```json
+{
+  "id": "chamado_abc123",
+  "titulo": "Problema na colhedeira C-120",
+  "status": "aberto",
+  "dataCriacao": "2024-11-24T14:30:00Z",
+  "mensagem": "Chamado criado com sucesso"
+}
+```
+
+---
+
+#### 2. **Listar Chamados**
+```http
+GET /api/v1/chamados?status=aberto&tipo=manutencao&prioridade=alta
+```
+
+**Headers:**
+```
+X-User-UID: firebase_uid_abc123
+```
+
+**Query Params (todos opcionais):**
+- `operadorId`: ID do operador (apenas para admin)
+- `status`: aberto, em_andamento, resolvido, cancelado
+- `tipo`: manutencao, problema, suporte, outro
+- `prioridade`: baixa, media, alta, urgente
+
+**Response:**
+```json
+[
+  {
+    "id": "chamado_001",
+    "operadorId": "oper_123",
+    "operadorNome": "João Silva",
+    "titulo": "Problema na colhedeira",
+    "descricao": "...",
+    "tipo": "manutencao",
+    "prioridade": "alta",
+    "status": "aberto",
+    "dataHoraRegistro": "2024-11-24T14:30:00Z",
+    "localizacao": {...},
+    "fotos": [],
+    "observacoes": []
+  }
+]
+```
+
+---
+
+#### 3. **Buscar Chamado Específico**
+```http
+GET /api/v1/chamados/{id}
+```
+
+**Headers:**
+```
+X-User-UID: firebase_uid_abc123
+```
+
+**Response:**
+```json
+{
+  "id": "chamado_001",
+  "operadorId": "oper_123",
+  "operadorNome": "João Silva",
+  "titulo": "Problema na colhedeira",
+  "descricao": "A colhedeira está apresentando falha no motor",
+  "tipo": "manutencao",
+  "prioridade": "alta",
+  "status": "em_andamento",
+  "dataHoraRegistro": "2024-11-24T14:30:00Z",
+  "dataHoraEnvio": "2024-11-24T14:32:00Z",
+  "localizacao": {
+    "latitude": -23.550520,
+    "longitude": -46.633308
+  },
+  "fotos": [
+    "https://storage.googleapis.com/.../foto1.jpg",
+    "https://storage.googleapis.com/.../foto2.jpg"
+  ],
+  "fazendaNome": "Fazenda São José",
+  "maquinaNome": "Colhedeira C-120",
+  "responsavelId": "user_456",
+  "responsavelNome": "Carlos Admin",
+  "observacoes": [
+    {
+      "texto": "Equipe a caminho",
+      "autor": "Carlos Admin",
+      "autorId": "user_456",
+      "data": "2024-11-24T15:00:00Z"
+    }
+  ],
+  "proprietarioId": "prop_001"
+}
+```
+
+---
+
+#### 4. **Atualizar Chamado (Admin)**
+```http
+PUT /api/v1/chamados/{id}
+```
+
+**Headers:**
+```
+X-User-UID: admin_uid_xyz
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "status": "em_andamento",
+  "responsavelId": "user_456",
+  "responsavelNome": "Carlos Admin",
+  "prioridade": "urgente"
+}
+```
+
+**Response:**
+```json
+{
+  "mensagem": "Chamado atualizado com sucesso"
+}
+```
+
+---
+
+#### 5. **Adicionar Observação**
+```http
+POST /api/v1/chamados/{id}/observacoes
+```
+
+**Headers:**
+```
+X-User-UID: firebase_uid_abc123
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "observacao": "Problema resolvido. Troca de correia realizada."
+}
+```
+
+**Response:**
+```json
+{
+  "mensagem": "Observação adicionada com sucesso"
+}
+```
+
+---
+
+#### 6. **Upload de Foto**
+```http
+POST /api/v1/chamados/{id}/fotos
+```
+
+**Headers:**
+```
+X-User-UID: firebase_uid_abc123
+Content-Type: multipart/form-data
+```
+
+**Form Data:**
+```
+foto: [arquivo de imagem]
+```
+
+**Response:**
+```json
+{
+  "url": "https://storage.googleapis.com/bucket/chamados/chamado_123/foto_abc.jpg",
+  "fotoId": "foto_abc123"
+}
+```
+
+---
+
+#### 7. **Deletar Chamado**
+```http
+DELETE /api/v1/chamados/{id}
+```
+
+**Headers:**
+```
+X-User-UID: firebase_uid_abc123
+```
+
+**Regras:**
+- Operador: Apenas chamados com status "aberto" e criados por ele
+- Admin: Qualquer chamado
+
+**Response:**
+```json
+{
+  "mensagem": "Chamado deletado com sucesso"
+}
+```
+
+---
+
+#### 8. **Chamados por Proprietário (Admin)**
+```http
+GET /api/v1/chamados/admin/proprietario/{proprietarioId}?status=aberto
+```
+
+**Headers:**
+```
+X-User-UID: admin_uid_xyz
+```
+
+**Query Params (todos opcionais):**
+- `status`: Filtrar por status
+- `tipo`: Filtrar por tipo
+- `prioridade`: Filtrar por prioridade
+
+**Response:** Array de chamados do proprietário
 
 ---
 
