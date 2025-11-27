@@ -111,4 +111,37 @@ public class OperadorRepository {
             throw new RuntimeException("Erro ao buscar operadores por fazenda", e);
         }
     }
+
+    /**
+     * Busca operadores por proprietarioId (filtro de segurança)
+     */
+    public List<Operador> findByProprietarioId(String proprietarioId) {
+        try {
+            System.out.println("🔍 Repository: Buscando operadores do proprietário: " + proprietarioId);
+            
+            List<QueryDocumentSnapshot> documents = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("proprietarioId", proprietarioId)
+                    .get()
+                    .get()
+                    .getDocuments();
+
+            List<Operador> operadores = new ArrayList<>();
+            
+            for (QueryDocumentSnapshot document : documents) {
+                Operador operador = document.toObject(Operador.class);
+                
+                if (operador != null) {
+                    operador.setId(document.getId());
+                    operadores.add(operador);
+                }
+            }
+            
+            System.out.println("✅ Encontrados " + operadores.size() + " operadores para proprietário " + proprietarioId);
+            return operadores;
+            
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("❌ Erro ao buscar operadores por proprietário: " + e.getMessage());
+            throw new RuntimeException("Erro ao buscar operadores por proprietário", e);
+        }
+    }
 }

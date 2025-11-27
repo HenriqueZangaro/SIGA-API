@@ -51,4 +51,17 @@ public class OperadorService {
         
         return operadores;
     }
+
+    /**
+     * Busca operadores por proprietarioId (filtro de segurança)
+     */
+    public List<Operador> buscarPorProprietarioId(String proprietarioId) {
+        System.out.println("🔍 Service: Buscando operadores do proprietário: " + proprietarioId);
+        
+        if (proprietarioId == null || proprietarioId.trim().isEmpty()) {
+            throw new IllegalArgumentException("ID do proprietário não pode ser vazio");
+        }
+        
+        return operadorRepository.findByProprietarioId(proprietarioId);
+    }
 }

@@ -1,20 +1,27 @@
 package com.siga.service;
 
+import com.siga.model.Fazenda;
 import com.siga.model.Trabalho;
+import com.siga.repository.FazendaRepository;
 import com.siga.repository.TrabalhoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class TrabalhoService {
 
     private final TrabalhoRepository trabalhoRepository;
+    private final FazendaRepository fazendaRepository;
 
     @Autowired
-    public TrabalhoService(TrabalhoRepository trabalhoRepository) {
+    public TrabalhoService(TrabalhoRepository trabalhoRepository, FazendaRepository fazendaRepository) {
         this.trabalhoRepository = trabalhoRepository;
+        this.fazendaRepository = fazendaRepository;
     }
 
     public List<Trabalho> buscarTodas() {
@@ -105,6 +112,42 @@ public class TrabalhoService {
         
         System.out.println("✅ Service: Encontrados " + trabalhos.size() + " trabalhos para safra " + safraId);
         
+        return trabalhos;
+    }
+
+    /**
+     * Busca trabalhos por proprietarioId (filtro de segurança)
+     * Como trabalhos estão relacionados a fazendas, busca através das fazendas do proprietário
+     */
+    public List<Trabalho> buscarPorProprietarioId(String proprietarioId) {
+        System.out.println("🔍 Service: Buscando trabalhos do proprietário: " + proprietarioId);
+        
+        if (proprietarioId == null || proprietarioId.trim().isEmpty()) {
+            throw new IllegalArgumentException("ID do proprietário não pode ser vazio");
+        }
+        
+        // 1. Buscar fazendas do proprietário
+        List<Fazenda> fazendas = fazendaRepository.findByProprietarioId(proprietarioId);
+        
+        if (fazendas.isEmpty()) {
+            System.out.println("⚠️ Service: Nenhuma fazenda encontrada para o proprietário " + proprietarioId);
+            return Collections.emptyList();
+        }
+        
+        // 2. Extrair IDs das fazendas
+        List<String> fazendaIds = fazendas.stream()
+                .map(Fazenda::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        
+        System.out.println("   📋 Fazendas encontradas: " + fazendas.size());
+        System.out.println("   📋 IDs: " + fazendaIds);
+        
+        // 3. Buscar trabalhos das fazendas
+        System.out.println("🔍 Repository: Buscando trabalhos de " + fazendaIds.size() + " fazendas");
+        List<Trabalho> trabalhos = trabalhoRepository.findByFazendaIdIn(fazendaIds);
+        
+        System.out.println("✅ Service: Encontrados " + trabalhos.size() + " trabalhos para o proprietário " + proprietarioId);
         return trabalhos;
     }
 }

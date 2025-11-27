@@ -136,6 +136,7 @@ public class UserProfileRepository {
                 try {
                     UserProfile userProfile = document.toObject(UserProfile.class);
                     if (userProfile != null) {
+                        userProfile.setUid(document.getId());
                         users.add(userProfile);
                     }
                 } catch (Exception e) {
@@ -149,6 +150,48 @@ public class UserProfileRepository {
         } catch (InterruptedException | ExecutionException e) {
             System.err.println("❌ Erro ao buscar usuários por role: " + e.getMessage());
             throw new RuntimeException("Erro ao buscar usuários por role", e);
+        }
+    }
+
+    /**
+     * Busca usuários por proprietarioId e permissão
+     * Usado para notificar admins/donos do proprietário sobre novos chamados
+     */
+    public List<UserProfile> findByProprietarioIdAndPermissao(String proprietarioId, List<String> permissoes) {
+        try {
+            System.out.println("🔍 Repository: Buscando usuários do proprietário " + proprietarioId + " com permissões: " + permissoes);
+            
+            // Buscar todos os usuários do proprietário
+            List<QueryDocumentSnapshot> documents = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("proprietarioId", proprietarioId)
+                    .get()
+                    .get()
+                    .getDocuments();
+            
+            List<UserProfile> users = new ArrayList<>();
+            for (QueryDocumentSnapshot document : documents) {
+                try {
+                    UserProfile userProfile = document.toObject(UserProfile.class);
+                    if (userProfile != null) {
+                        userProfile.setUid(document.getId());
+                        
+                        // Filtrar por permissão
+                        if (userProfile.getPermissao() != null && 
+                            permissoes.contains(userProfile.getPermissao().toLowerCase())) {
+                            users.add(userProfile);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("❌ Erro ao deserializar UserProfile " + document.getId() + ": " + e.getMessage());
+                }
+            }
+            
+            System.out.println("✅ Repository: Encontrados " + users.size() + " usuários com permissões " + permissoes);
+            return users;
+            
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("❌ Erro ao buscar usuários por proprietário e permissão: " + e.getMessage());
+            throw new RuntimeException("Erro ao buscar usuários por proprietário e permissão", e);
         }
     }
 }

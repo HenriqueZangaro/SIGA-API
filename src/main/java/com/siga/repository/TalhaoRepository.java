@@ -111,4 +111,50 @@ public class TalhaoRepository {
             throw new RuntimeException("Erro ao buscar talhões por fazenda", e);
         }
     }
+
+    /**
+     * Busca talhões por lista de IDs de fazendas
+     * Usado para filtrar talhões através das fazendas do proprietário
+     */
+    public List<Talhao> findByFazendaIdIn(List<String> fazendaIds) {
+        if (fazendaIds == null || fazendaIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        try {
+            System.out.println("🔍 Repository: Buscando talhões de " + fazendaIds.size() + " fazendas");
+            
+            List<Talhao> todosTalhoes = new ArrayList<>();
+            
+            // Firestore limita whereIn a 10 valores
+            // Dividir em lotes de 10
+            for (int i = 0; i < fazendaIds.size(); i += 10) {
+                int end = Math.min(i + 10, fazendaIds.size());
+                List<String> lote = fazendaIds.subList(i, end);
+                
+                System.out.println("   📦 Processando lote " + (i / 10 + 1) + " com " + lote.size() + " fazendas");
+                
+                List<QueryDocumentSnapshot> documents = firestore.collection(COLLECTION_NAME)
+                        .whereIn("fazendaId", lote)
+                        .get()
+                        .get()
+                        .getDocuments();
+                
+                for (QueryDocumentSnapshot document : documents) {
+                    Talhao talhao = document.toObject(Talhao.class);
+                    if (talhao != null) {
+                        talhao.setId(document.getId());
+                        todosTalhoes.add(talhao);
+                    }
+                }
+            }
+            
+            System.out.println("✅ Encontrados " + todosTalhoes.size() + " talhões para as fazendas");
+            return todosTalhoes;
+            
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("❌ Erro ao buscar talhões por fazendas: " + e.getMessage());
+            throw new RuntimeException("Erro ao buscar talhões por fazendas", e);
+        }
+    }
 }

@@ -37,5 +37,18 @@ public class FazendaService {
         
         return fazenda;
     }
+
+    /**
+     * Busca fazendas por proprietarioId (filtro de segurança)
+     */
+    public List<Fazenda> buscarPorProprietarioId(String proprietarioId) {
+        System.out.println("🔍 Service: Buscando fazendas do proprietário: " + proprietarioId);
+        
+        if (proprietarioId == null || proprietarioId.trim().isEmpty()) {
+            throw new IllegalArgumentException("ID do proprietário não pode ser vazio");
+        }
+        
+        return fazendaRepository.findByProprietarioId(proprietarioId);
+    }
 }
 

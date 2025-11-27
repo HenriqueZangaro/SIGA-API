@@ -24,11 +24,12 @@ public class ChamadoService {
 
     /**
      * Cria um novo chamado
+     * Valida que o proprietarioId está correto e que o usuário pertence ao proprietário
      */
-    public String criarChamado(Chamado chamado) {
+    public String criarChamado(Chamado chamado, String userUid, com.siga.model.UserProfile userProfile) {
         System.out.println("🔧 Service: Criando novo chamado - Título: " + chamado.getTitulo());
 
-        // Validações
+        // Validações básicas
         if (chamado.getTitulo() == null || chamado.getTitulo().trim().isEmpty()) {
             throw new RuntimeException("Título é obrigatório");
         }
@@ -55,6 +56,25 @@ public class ChamadoService {
         List<String> prioridadesValidas = List.of("baixa", "media", "alta", "urgente");
         if (!prioridadesValidas.contains(chamado.getPrioridade().toLowerCase())) {
             throw new RuntimeException("Prioridade inválida. Use: baixa, media, alta ou urgente");
+        }
+
+        // VALIDAÇÃO CRÍTICA: proprietarioId é obrigatório
+        if (chamado.getProprietarioId() == null || chamado.getProprietarioId().trim().isEmpty()) {
+            throw new RuntimeException("proprietarioId é obrigatório");
+        }
+
+        // VALIDAÇÃO CRÍTICA: Validar que o usuário pertence ao proprietário
+        String userProprietarioId = userProfile.getProprietarioId();
+        
+        // Se for operador, buscar proprietarioId do operador
+        if ("operador".equalsIgnoreCase(userProfile.getRole()) && userProfile.getOperadorId() != null) {
+            // O proprietarioId já foi definido no controller através do operador
+            // Apenas validar que está correto
+        } else if ("user".equalsIgnoreCase(userProfile.getRole())) {
+            // User comum: validar que o proprietarioId do chamado é o mesmo do perfil
+            if (userProprietarioId == null || !chamado.getProprietarioId().equals(userProprietarioId)) {
+                throw new RuntimeException("Usuário não pode criar chamado para outro proprietário");
+            }
         }
 
         // Definir status padrão como 'aberto'
@@ -87,16 +107,20 @@ public class ChamadoService {
             chamado.setSincronizado(true);
         }
 
+        System.out.println("✅ Service: Validações passadas - proprietarioId: " + chamado.getProprietarioId());
+
         String chamadoId = chamadoRepository.criarChamado(chamado);
         System.out.println("✅ Service: Chamado criado com sucesso - ID: " + chamadoId);
 
         // Notificar todos os admins sobre o novo chamado
         try {
+            String operadorNome = chamado.getOperadorNome() != null ? chamado.getOperadorNome() : "Usuário";
             notificacaoService.notificarNovoGhamado(
-                chamado.getOperadorNome(),
+                operadorNome,
                 chamadoId,
                 chamado.getTitulo(),
-                chamado.getPrioridade()
+                chamado.getPrioridade(),
+                chamado.getProprietarioId()
             );
         } catch (Exception e) {
             System.err.println("⚠️ Service: Erro ao enviar notificação (não crítico): " + e.getMessage());

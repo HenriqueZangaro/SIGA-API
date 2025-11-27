@@ -142,5 +142,56 @@ public class AuthService {
         UserProfile userProfile = userProfileRepository.findByUid(uid);
         return userProfile != null && "operador".equalsIgnoreCase(userProfile.getRole());
     }
+
+    /**
+     * Verifica se o usuário é um user comum (dono/admin de proprietário)
+     */
+    public boolean isUser(String uid) {
+        UserProfile userProfile = userProfileRepository.findByUid(uid);
+        return userProfile != null && "user".equalsIgnoreCase(userProfile.getRole());
+    }
+
+    /**
+     * Obtém o proprietarioId do usuário baseado em seu role
+     * - Admin: retorna null (acesso a todos)
+     * - User: retorna o proprietarioId do perfil
+     * - Operador: retorna o proprietarioId do operador vinculado
+     */
+    public String getProprietarioId(String uid) {
+        UserProfile userProfile = userProfileRepository.findByUid(uid);
+        
+        if (userProfile == null) {
+            return null;
+        }
+        
+        // Admin tem acesso a tudo
+        if ("admin".equalsIgnoreCase(userProfile.getRole())) {
+            return null; // null significa acesso total
+        }
+        
+        // User: retorna o proprietarioId do perfil
+        if ("user".equalsIgnoreCase(userProfile.getRole())) {
+            return userProfile.getProprietarioId();
+        }
+        
+        // Operador: busca o proprietarioId do operador
+        if ("operador".equalsIgnoreCase(userProfile.getRole())) {
+            if (userProfile.getOperadorId() != null) {
+                Operador operador = operadorRepository.findById(userProfile.getOperadorId());
+                if (operador != null) {
+                    return operador.getProprietarioId();
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Obtém o UserProfile pelo UID
+     */
+    public UserProfile getUserProfile(String uid) {
+        return userProfileRepository.findByUid(uid);
+    }
 }
 

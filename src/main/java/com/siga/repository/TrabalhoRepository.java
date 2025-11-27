@@ -231,4 +231,84 @@ public class TrabalhoRepository {
             throw new RuntimeException("Erro ao buscar trabalhos por safra", e);
         }
     }
+
+    /**
+     * Busca trabalhos por fazendaIds (usado para filtrar por proprietarioId)
+     * Firestore limita whereIn a 10 itens, então fazemos em lotes
+     */
+    public List<Trabalho> findByFazendaIdIn(List<String> fazendaIds) {
+        if (fazendaIds == null || fazendaIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<Trabalho> todosTrabalhos = new ArrayList<>();
+        
+        // Processar em lotes de 10 (limite do Firestore whereIn)
+        for (int i = 0; i < fazendaIds.size(); i += 10) {
+            List<String> lote = fazendaIds.subList(i, Math.min(i + 10, fazendaIds.size()));
+            
+            try {
+                System.out.println("   📦 Processando lote " + ((i / 10) + 1) + " com " + lote.size() + " fazendas");
+                
+                List<QueryDocumentSnapshot> documents = firestore.collection(COLLECTION_NAME)
+                        .whereIn("fazendaId", lote)
+                        .get()
+                        .get()
+                        .getDocuments();
+                
+                for (QueryDocumentSnapshot document : documents) {
+                    try {
+                        Trabalho trabalho = document.toObject(Trabalho.class);
+                        if (trabalho != null) {
+                            trabalho.setId(document.getId());
+                            todosTrabalhos.add(trabalho);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("❌ Erro ao deserializar trabalho " + document.getId() + ": " + e.getMessage());
+                    }
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                System.err.println("❌ Erro ao buscar trabalhos por fazendas (lote " + ((i / 10) + 1) + "): " + e.getMessage());
+                // Continua processando outros lotes mesmo se um falhar
+            }
+        }
+        
+        System.out.println("✅ Encontrados " + todosTrabalhos.size() + " trabalhos para " + fazendaIds.size() + " fazendas");
+        return todosTrabalhos;
+    }
+
+    /**
+     * Busca trabalhos por proprietarioId (filtro de segurança)
+     * DEPRECATED: Use findByFazendaIdIn() através das fazendas do proprietário
+     */
+    @Deprecated
+    public List<Trabalho> findByProprietarioId(String proprietarioId) {
+        try {
+            System.out.println("🔍 Repository: Buscando trabalhos do proprietário: " + proprietarioId);
+            
+            List<QueryDocumentSnapshot> documents = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("proprietarioId", proprietarioId)
+                    .get()
+                    .get()
+                    .getDocuments();
+
+            List<Trabalho> trabalhos = new ArrayList<>();
+            
+            for (QueryDocumentSnapshot document : documents) {
+                Trabalho trabalho = document.toObject(Trabalho.class);
+                
+                if (trabalho != null) {
+                    trabalho.setId(document.getId());
+                    trabalhos.add(trabalho);
+                }
+            }
+            
+            System.out.println("✅ Encontrados " + trabalhos.size() + " trabalhos para proprietário " + proprietarioId);
+            return trabalhos;
+            
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("❌ Erro ao buscar trabalhos por proprietário: " + e.getMessage());
+            throw new RuntimeException("Erro ao buscar trabalhos por proprietário", e);
+        }
+    }
 }

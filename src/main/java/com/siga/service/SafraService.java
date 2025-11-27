@@ -51,4 +51,17 @@ public class SafraService {
         
         return safras;
     }
+
+    /**
+     * Busca safras por proprietarioId (filtro de segurança)
+     */
+    public List<Safra> buscarPorProprietarioId(String proprietarioId) {
+        System.out.println("🔍 Service: Buscando safras do proprietário: " + proprietarioId);
+        
+        if (proprietarioId == null || proprietarioId.trim().isEmpty()) {
+            throw new IllegalArgumentException("ID do proprietário não pode ser vazio");
+        }
+        
+        return safraRepository.findByProprietarioId(proprietarioId);
+    }
 }

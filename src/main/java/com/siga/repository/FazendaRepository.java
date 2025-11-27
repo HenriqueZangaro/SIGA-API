@@ -81,5 +81,38 @@ public class FazendaRepository {
             throw new RuntimeException("Erro ao buscar fazenda por ID", e);
         }
     }
+
+    /**
+     * Busca fazendas por proprietarioId (filtro de segurança)
+     */
+    public List<Fazenda> findByProprietarioId(String proprietarioId) {
+        try {
+            System.out.println("🔍 Repository: Buscando fazendas do proprietário: " + proprietarioId);
+            
+            List<QueryDocumentSnapshot> documents = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("proprietarioId", proprietarioId)
+                    .get()
+                    .get()
+                    .getDocuments();
+
+            List<Fazenda> fazendas = new ArrayList<>();
+            
+            for (QueryDocumentSnapshot document : documents) {
+                Fazenda fazenda = document.toObject(Fazenda.class);
+                
+                if (fazenda != null) {
+                    fazenda.setId(document.getId());
+                    fazendas.add(fazenda);
+                }
+            }
+            
+            System.out.println("✅ Encontradas " + fazendas.size() + " fazendas para proprietário " + proprietarioId);
+            return fazendas;
+            
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("❌ Erro ao buscar fazendas por proprietário: " + e.getMessage());
+            throw new RuntimeException("Erro ao buscar fazendas por proprietário", e);
+        }
+    }
 }
 

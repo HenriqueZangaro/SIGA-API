@@ -111,4 +111,37 @@ public class SafraRepository {
             throw new RuntimeException("Erro ao buscar safras por fazenda", e);
         }
     }
+
+    /**
+     * Busca safras por proprietarioId (filtro de segurança)
+     */
+    public List<Safra> findByProprietarioId(String proprietarioId) {
+        try {
+            System.out.println("🔍 Repository: Buscando safras do proprietário: " + proprietarioId);
+            
+            List<QueryDocumentSnapshot> documents = firestore.collection(COLLECTION_NAME)
+                    .whereEqualTo("proprietarioId", proprietarioId)
+                    .get()
+                    .get()
+                    .getDocuments();
+
+            List<Safra> safras = new ArrayList<>();
+            
+            for (QueryDocumentSnapshot document : documents) {
+                Safra safra = document.toObject(Safra.class);
+                
+                if (safra != null) {
+                    safra.setId(document.getId());
+                    safras.add(safra);
+                }
+            }
+            
+            System.out.println("✅ Encontradas " + safras.size() + " safras para proprietário " + proprietarioId);
+            return safras;
+            
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("❌ Erro ao buscar safras por proprietário: " + e.getMessage());
+            throw new RuntimeException("Erro ao buscar safras por proprietário", e);
+        }
+    }
 }

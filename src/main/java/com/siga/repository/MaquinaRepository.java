@@ -111,4 +111,52 @@ public class MaquinaRepository {
             throw new RuntimeException("Erro ao buscar máquinas por fazenda", e);
         }
     }
+
+    /**
+     * Busca máquinas que pertencem a pelo menos uma das fazendas fornecidas
+     * Máquinas têm fazendaIds[] (array), então precisamos verificar se contém algum ID da lista
+     */
+    public List<Maquina> findByFazendaIdsContainingAny(List<String> fazendaIds) {
+        if (fazendaIds == null || fazendaIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        try {
+            System.out.println("🔍 Repository: Buscando máquinas de " + fazendaIds.size() + " fazendas");
+            
+            // Firestore não suporta "array-contains-any" diretamente
+            // Buscar todas as máquinas e filtrar em memória
+            List<QueryDocumentSnapshot> allDocuments = firestore.collection(COLLECTION_NAME)
+                    .get()
+                    .get()
+                    .getDocuments();
+            
+            List<Maquina> maquinasFiltradas = new ArrayList<>();
+            
+            for (QueryDocumentSnapshot document : allDocuments) {
+                Maquina maquina = document.toObject(Maquina.class);
+                
+                if (maquina != null) {
+                    maquina.setId(document.getId());
+                    
+                    // Verificar se a máquina pertence a alguma das fazendas
+                    if (maquina.getFazendaIds() != null && !maquina.getFazendaIds().isEmpty()) {
+                        boolean pertence = maquina.getFazendaIds().stream()
+                                .anyMatch(fazendaIds::contains);
+                        
+                        if (pertence) {
+                            maquinasFiltradas.add(maquina);
+                        }
+                    }
+                }
+            }
+            
+            System.out.println("✅ Máquinas filtradas: " + maquinasFiltradas.size() + " de " + allDocuments.size() + " total");
+            return maquinasFiltradas;
+            
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("❌ Erro ao buscar máquinas por fazendas: " + e.getMessage());
+            throw new RuntimeException("Erro ao buscar máquinas por fazendas", e);
+        }
+    }
 }

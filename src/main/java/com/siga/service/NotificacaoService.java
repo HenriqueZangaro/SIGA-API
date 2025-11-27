@@ -186,23 +186,72 @@ public class NotificacaoService {
 
     /**
      * Notifica admins quando um chamado é criado
+     * Notifica:
+     * 1. Admin do site (todos os chamados)
+     * 2. Admin/Dono do proprietário (apenas chamados do seu proprietário)
      */
-    public void notificarNovoGhamado(String operadorNome, String chamadoId, String titulo, String prioridade) {
+    public void notificarNovoGhamado(String operadorNome, String chamadoId, String titulo, String prioridade, String proprietarioId) {
         System.out.println("🔔 Service: Notificando admins sobre novo chamado");
+        System.out.println("   📋 Chamado: " + titulo);
+        System.out.println("   👤 Criado por: " + operadorNome);
+        System.out.println("   🏢 Proprietário: " + proprietarioId);
 
-        Notificacao notificacao = new Notificacao();
-        notificacao.setUserId("admin"); // Será distribuído para todos os admins
-        notificacao.setTitulo("Novo Chamado" + ("urgente".equalsIgnoreCase(prioridade) ? " URGENTE" : ""));
-        notificacao.setMensagem("Operador " + operadorNome + " abriu um chamado: " + titulo);
-        notificacao.setTipo("urgente".equalsIgnoreCase(prioridade) ? "alerta" : "info");
-        notificacao.setCategoria("chamado");
+        // 1. Notificar Admin do Site (todos os admins com role = 'admin')
+        try {
+            List<UserProfile> siteAdmins = userProfileRepository.findAllByRole("admin");
+            System.out.println("   👑 Encontrados " + siteAdmins.size() + " admins do site");
+            
+            for (UserProfile admin : siteAdmins) {
+                Notificacao notifAdmin = new Notificacao();
+                notifAdmin.setUserId(admin.getUid());
+                notifAdmin.setTitulo("Novo Chamado" + ("urgente".equalsIgnoreCase(prioridade) ? " URGENTE" : ""));
+                notifAdmin.setMensagem("Operador " + operadorNome + " abriu um chamado: " + titulo);
+                notifAdmin.setTipo("urgente".equalsIgnoreCase(prioridade) ? "alerta" : "info");
+                notifAdmin.setCategoria("chamado");
+                
+                Map<String, Object> dados = new HashMap<>();
+                dados.put("chamadoId", chamadoId);
+                dados.put("prioridade", prioridade);
+                dados.put("proprietarioId", proprietarioId);
+                notifAdmin.setDados(dados);
+                
+                notificacaoRepository.criar(notifAdmin);
+            }
+            
+            System.out.println("   ✅ Notificações enviadas para " + siteAdmins.size() + " admins do site");
+        } catch (Exception e) {
+            System.err.println("   ⚠️ Erro ao notificar admins do site: " + e.getMessage());
+        }
 
-        Map<String, Object> dados = new HashMap<>();
-        dados.put("chamadoId", chamadoId);
-        dados.put("prioridade", prioridade);
-        notificacao.setDados(dados);
-
-        criar(notificacao);
+        // 2. Notificar Admin/Dono do Proprietário (permissao = 'admin' ou 'dono')
+        if (proprietarioId != null && !proprietarioId.isEmpty()) {
+            try {
+                List<String> permissoes = List.of("admin", "dono");
+                List<UserProfile> proprietarioAdmins = userProfileRepository.findByProprietarioIdAndPermissao(proprietarioId, permissoes);
+                System.out.println("   👥 Encontrados " + proprietarioAdmins.size() + " admins/donos do proprietário");
+                
+                for (UserProfile admin : proprietarioAdmins) {
+                    Notificacao notifAdmin = new Notificacao();
+                    notifAdmin.setUserId(admin.getUid());
+                    notifAdmin.setTitulo("Novo Chamado no Seu Proprietário");
+                    notifAdmin.setMensagem("Operador " + operadorNome + " abriu um chamado: " + titulo);
+                    notifAdmin.setTipo("urgente".equalsIgnoreCase(prioridade) ? "alerta" : "info");
+                    notifAdmin.setCategoria("chamado");
+                    
+                    Map<String, Object> dados = new HashMap<>();
+                    dados.put("chamadoId", chamadoId);
+                    dados.put("prioridade", prioridade);
+                    dados.put("proprietarioId", proprietarioId);
+                    notifAdmin.setDados(dados);
+                    
+                    notificacaoRepository.criar(notifAdmin);
+                }
+                
+                System.out.println("   ✅ Notificações enviadas para " + proprietarioAdmins.size() + " admins/donos do proprietário");
+            } catch (Exception e) {
+                System.err.println("   ⚠️ Erro ao notificar admins do proprietário: " + e.getMessage());
+            }
+        }
     }
 
     /**

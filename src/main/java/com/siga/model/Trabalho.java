@@ -69,6 +69,8 @@ public class Trabalho {
     private String produtoNome;
     @JsonProperty("fazendaId")
     private String fazendaId;
+    @JsonProperty("proprietarioId")
+    private String proprietarioId;
     @JsonProperty("talhaoId")
     private String talhaoId;
     @JsonProperty("maquinaId")

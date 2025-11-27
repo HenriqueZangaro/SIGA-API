@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ public class ChamadoController {
     /**
      * POST /api/v1/chamados
      * Cria um novo chamado
+     * Valida que o proprietarioId do usuário está correto
      */
     @PostMapping
     public ResponseEntity<?> criarChamado(
@@ -54,14 +56,43 @@ public class ChamadoController {
             System.out.println("🔐 UID: " + uid);
             System.out.println("📝 Título: " + request.getTitulo());
 
-            // Validar operador
-            Map<String, Object> operadorInfo = authService.getOperadorInfo(uid);
-            @SuppressWarnings("unchecked")
-            Map<String, Object> operadorData = (Map<String, Object>) operadorInfo.get("operador");
+            // Buscar perfil do usuário
+            UserProfile userProfile = authService.getUserProfile(uid);
+            if (userProfile == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("erro", "Usuário não encontrado"));
+            }
 
-            String operadorId = (String) operadorData.get("id");
-            String operadorNome = (String) operadorData.get("nome");
-            String proprietarioId = (String) operadorData.get("proprietarioId");
+            // Obter proprietarioId do usuário
+            String userProprietarioId = authService.getProprietarioId(uid);
+            
+            if (userProprietarioId == null || userProprietarioId.isEmpty()) {
+                System.out.println("⚠️ Controller: Usuário sem proprietário associado");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("erro", "Usuário não possui proprietário associado. Entre em contato com o administrador."));
+            }
+
+            System.out.println("👤 Controller: UserProfile - role: " + userProfile.getRole() + ", proprietarioId: " + userProprietarioId);
+
+            // Obter informações do operador (se for operador) ou usar dados do user
+            String operadorId = null;
+            String operadorNome = null;
+            
+            if ("operador".equalsIgnoreCase(userProfile.getRole())) {
+                Map<String, Object> operadorInfo = authService.getOperadorInfo(uid);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> operadorData = (Map<String, Object>) operadorInfo.get("operador");
+                operadorId = (String) operadorData.get("id");
+                operadorNome = (String) operadorData.get("nome");
+            } else if ("user".equalsIgnoreCase(userProfile.getRole())) {
+                // User comum pode criar chamado também
+                // Para compatibilidade, usar userId como operadorId
+                operadorId = uid; // Usar UID como operadorId para compatibilidade
+                operadorNome = userProfile.getDisplayName() != null ? userProfile.getDisplayName() : userProfile.getEmail();
+            } else if ("admin".equalsIgnoreCase(userProfile.getRole())) {
+                // Admin pode criar, mas não recomendado
+                operadorNome = userProfile.getDisplayName() != null ? userProfile.getDisplayName() : "Administrador";
+            }
 
             // Criar chamado
             Chamado chamado = new Chamado();
@@ -75,7 +106,7 @@ public class ChamadoController {
             chamado.setStatus("aberto");
             chamado.setDataHoraRegistro(Timestamp.now());
             chamado.setDataHoraEnvio(Timestamp.now());
-            chamado.setProprietarioId(proprietarioId);
+            chamado.setProprietarioId(userProprietarioId); // SEMPRE usar o do usuário
             chamado.setLocalizacao(request.getLocalizacao());
             chamado.setFazendaId(request.getFazendaId());
             chamado.setFazendaNome(request.getFazendaNome());
@@ -85,7 +116,8 @@ public class ChamadoController {
             chamado.setMaquinaNome(request.getMaquinaNome());
             chamado.setSincronizado(request.getSincronizado() != null ? request.getSincronizado() : true);
 
-            String chamadoId = chamadoService.criarChamado(chamado);
+            // Validar no service
+            String chamadoId = chamadoService.criarChamado(chamado, uid, userProfile);
 
             Map<String, Object> response = new HashMap<>();
             response.put("id", chamadoId);
@@ -111,11 +143,14 @@ public class ChamadoController {
 
     /**
      * GET /api/v1/chamados
-     * Lista chamados (operador vê seus próprios, admin vê todos ou de um operador específico)
+     * Lista chamados com filtro por proprietarioId
+     * - Admin: vê todos (ou filtra por proprietarioId se informado)
+     * - User/Operador: vê apenas do seu proprietário
      */
     @GetMapping
     public ResponseEntity<?> getChamados(
             @RequestHeader("X-User-UID") String uid,
+            @RequestParam(required = false) String proprietarioId,
             @RequestParam(required = false) String operadorId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String tipo,
@@ -126,25 +161,59 @@ public class ChamadoController {
 
             List<Chamado> chamados;
 
+            // Admin do site tem acesso total
             if (authService.isAdmin(uid)) {
-                System.out.println("👑 Admin do site detectado - Acesso total concedido");
-                if (operadorId != null && !operadorId.isEmpty()) {
+                System.out.println("👑 Admin do site - Acesso total");
+                
+                // Admin pode filtrar por proprietarioId ou operadorId
+                if (proprietarioId != null && !proprietarioId.isEmpty()) {
+                    chamados = chamadoService.getChamadosByProprietario(proprietarioId, status, tipo, prioridade);
+                    System.out.println("✅ Controller: Retornando " + chamados.size() + " chamados do proprietário " + proprietarioId);
+                } else if (operadorId != null && !operadorId.isEmpty()) {
                     chamados = chamadoService.getChamadosByOperador(operadorId, status, tipo, prioridade);
                     System.out.println("✅ Controller: Retornando " + chamados.size() + " chamados do operador " + operadorId);
                 } else {
                     chamados = chamadoService.getTodosChamados(status, tipo, prioridade);
                     System.out.println("✅ Controller: Retornando " + chamados.size() + " chamados (todos)");
                 }
-            } else if (authService.isOperador(uid)) {
-                Map<String, Object> operadorInfo = authService.getOperadorInfo(uid);
-                @SuppressWarnings("unchecked")
-                Map<String, Object> operadorData = (Map<String, Object>) operadorInfo.get("operador");
-                String authenticatedOperadorId = (String) operadorData.get("id");
-                chamados = chamadoService.getChamadosByOperador(authenticatedOperadorId, status, tipo, prioridade);
-                System.out.println("✅ Controller: Retornando " + chamados.size() + " chamados do operador " + authenticatedOperadorId);
             } else {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("erro", "Acesso negado. Usuário não é operador ou admin."));
+                // User ou Operador: filtrar por proprietarioId do usuário
+                String userProprietarioId = authService.getProprietarioId(uid);
+                
+                if (userProprietarioId == null || userProprietarioId.isEmpty()) {
+                    System.out.println("⚠️ Controller: Usuário sem proprietário associado");
+                    return ResponseEntity.ok(Collections.emptyList());
+                }
+                
+                // Validar se o usuário está tentando ver outro proprietário
+                if (proprietarioId != null && !proprietarioId.equals(userProprietarioId)) {
+                    System.out.println("⚠️ Controller: Tentativa de acessar outro proprietário");
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("erro", "Sem permissão para acessar chamados de outro proprietário"));
+                }
+                
+                System.out.println("🔍 Controller: Filtrando por proprietarioId: " + userProprietarioId);
+                
+                // Se for operador, pode filtrar por seus próprios chamados
+                if (authService.isOperador(uid) && operadorId != null && !operadorId.isEmpty()) {
+                    Map<String, Object> operadorInfo = authService.getOperadorInfo(uid);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> operadorData = (Map<String, Object>) operadorInfo.get("operador");
+                    String authenticatedOperadorId = (String) operadorData.get("id");
+                    
+                    // Validar que está tentando ver seus próprios chamados
+                    if (!operadorId.equals(authenticatedOperadorId)) {
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(Map.of("erro", "Acesso negado"));
+                    }
+                    
+                    chamados = chamadoService.getChamadosByOperador(authenticatedOperadorId, status, tipo, prioridade);
+                } else {
+                    // Buscar todos os chamados do proprietário
+                    chamados = chamadoService.getChamadosByProprietario(userProprietarioId, status, tipo, prioridade);
+                }
+                
+                System.out.println("✅ Controller: Retornando " + chamados.size() + " chamados do proprietário");
             }
 
             return ResponseEntity.ok(chamados);
@@ -173,14 +242,18 @@ public class ChamadoController {
 
             Chamado chamado = chamadoService.getChamadoById(id);
 
-            // Verificar permissão
+            // Verificar permissão por proprietarioId
             if (!authService.isAdmin(uid)) {
-                Map<String, Object> operadorInfo = authService.getOperadorInfo(uid);
-                @SuppressWarnings("unchecked")
-                Map<String, Object> operadorData = (Map<String, Object>) operadorInfo.get("operador");
-                String operadorId = (String) operadorData.get("id");
-
-                if (!chamado.getOperadorId().equals(operadorId)) {
+                String userProprietarioId = authService.getProprietarioId(uid);
+                
+                if (userProprietarioId == null) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("erro", "Usuário sem proprietário associado"));
+                }
+                
+                // Verificar se o chamado pertence ao proprietário do usuário
+                if (chamado.getProprietarioId() == null || !chamado.getProprietarioId().equals(userProprietarioId)) {
+                    System.out.println("⚠️ Controller: Acesso negado - proprietário diferente");
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
                             .body(Map.of("erro", "Acesso negado a este chamado"));
                 }
@@ -257,6 +330,19 @@ public class ChamadoController {
                         .body(Map.of("erro", "Usuário não encontrado"));
             }
 
+            // Verificar permissão por proprietarioId (admin pode sempre, outros só se for do seu proprietário)
+            if (!authService.isAdmin(uid)) {
+                Chamado chamado = chamadoService.getChamadoById(id);
+                String userProprietarioId = authService.getProprietarioId(uid);
+                
+                if (userProprietarioId == null || 
+                    chamado.getProprietarioId() == null || 
+                    !chamado.getProprietarioId().equals(userProprietarioId)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("erro", "Acesso negado a este chamado"));
+                }
+            }
+
             String autorNome = userProfile.getDisplayName() != null ? userProfile.getDisplayName() : userProfile.getEmail();
 
             chamadoService.adicionarObservacao(id, request.getObservacao(), autorNome, uid);
@@ -290,14 +376,17 @@ public class ChamadoController {
             // Validar que o chamado existe
             Chamado chamado = chamadoService.getChamadoById(id);
 
-            // Verificar permissão
+            // Verificar permissão por proprietarioId
             if (!authService.isAdmin(uid)) {
-                Map<String, Object> operadorInfo = authService.getOperadorInfo(uid);
-                @SuppressWarnings("unchecked")
-                Map<String, Object> operadorData = (Map<String, Object>) operadorInfo.get("operador");
-                String operadorId = (String) operadorData.get("id");
-
-                if (!chamado.getOperadorId().equals(operadorId)) {
+                String userProprietarioId = authService.getProprietarioId(uid);
+                
+                if (userProprietarioId == null) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(Map.of("erro", "Usuário sem proprietário associado"));
+                }
+                
+                // Verificar se o chamado pertence ao proprietário do usuário
+                if (chamado.getProprietarioId() == null || !chamado.getProprietarioId().equals(userProprietarioId)) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
                             .body(Map.of("erro", "Acesso negado a este chamado"));
                 }
