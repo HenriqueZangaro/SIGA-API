@@ -1,6 +1,6 @@
 # 🚀 SIGA API - Sistema de Gestão Agrícola
 
-API RESTful completa para gerenciamento de fazendas com suporte a registro de pontos de operadores, construída com **Spring Boot** + **Firebase Firestore**.
+API RESTful completa para gerenciamento de fazendas com suporte a registro de pontos de operadores, chamados de suporte, notificações e controle multi-tenant, construída com **Spring Boot** + **Firebase Firestore**.
 
 ---
 
@@ -9,20 +9,15 @@ API RESTful completa para gerenciamento de fazendas com suporte a registro de po
 1. [Visão Geral](#-visão-geral)
 2. [Tecnologias](#-tecnologias)
 3. [Estrutura do Projeto](#-estrutura-do-projeto)
-4. [Endpoints da API](#-endpoints-da-api)
-   - [Fazendas](#fazendas)
-   - [Operadores](#operadores)
-   - [Máquinas](#máquinas)
-   - [Talhões](#talhões)
-   - [Trabalhos](#trabalhos)
-   - [Safras](#safras)
-   - [Proprietários](#proprietários)
-   - [**🆕 Registro de Pontos**](#-registro-de-pontos)
-   - [**🆕 Chamados**](#-chamados-suportemanutenção)
-   - [**🆕 Autenticação**](#-autenticação)
-5. [Como Executar](#-como-executar)
-6. [Configuração Firebase](#-configuração-firebase)
-7. [Integração com App Mobile](#-integração-com-app-mobile)
+4. [Autenticação e Segurança](#-autenticação-e-segurança)
+5. [Endpoints da API](#-endpoints-da-api)
+6. [Filtro por Proprietário](#-filtro-por-proprietário)
+7. [Upload de Fotos (ImgBB)](#-upload-de-fotos-imgbb)
+8. [Sistema de Notificações](#-sistema-de-notificações)
+9. [Configuração de Rede](#-configuração-de-rede)
+10. [Como Executar](#-como-executar)
+11. [Integração com App Mobile](#-integração-com-app-mobile)
+12. [Estrutura do Firestore](#-estrutura-do-firestore)
 
 ---
 
@@ -36,10 +31,11 @@ A **SIGA API** é uma solução completa para gestão de fazendas que oferece:
 - ✅ **Administração de Talhões** - Organização de áreas de plantio
 - ✅ **Registro de Trabalhos** - Acompanhamento de atividades agrícolas
 - ✅ **Controle de Safras** - Gestão de safras por proprietário
-- ✅ **🆕 Registro de Pontos** - Sistema completo de ponto eletrônico para operadores
-- ✅ **🆕 Chamados de Suporte** - Sistema de chamados com upload de fotos
-- ✅ **🆕 Autenticação Firebase** - Login seguro com Firebase Auth
-- ✅ **Multi-tenant** - Suporte a múltiplos proprietários
+- ✅ **Registro de Pontos** - Sistema completo de ponto eletrônico para operadores
+- ✅ **Chamados de Suporte** - Sistema de chamados com upload de fotos
+- ✅ **Notificações** - Sistema completo de notificações em tempo real
+- ✅ **Autenticação Firebase** - Login seguro com Firebase Auth
+- ✅ **Multi-tenant** - Suporte a múltiplos proprietários com filtro de segurança
 - ✅ **Sincronização em tempo real** - Dados sempre atualizados
 
 ---
@@ -50,6 +46,7 @@ A **SIGA API** é uma solução completa para gestão de fazendas que oferece:
 - **Spring Boot 3.x**
 - **Firebase Admin SDK** - Firestore Database
 - **Firebase Authentication** - Autenticação de usuários
+- **ImgBB API** - Armazenamento gratuito de fotos
 - **Lombok** - Redução de código boilerplate
 - **Maven** - Gerenciamento de dependências
 - **CORS** habilitado para integração web/mobile
@@ -62,25 +59,27 @@ A **SIGA API** é uma solução completa para gestão de fazendas que oferece:
 src/main/java/com/siga/
 ├── model/                          # Entidades do sistema
 │   ├── Fazenda.java
-│   ├── Operador.java              # ✅ Atualizado com userId
+│   ├── Operador.java
 │   ├── Maquina.java
 │   ├── Talhao.java
 │   ├── Trabalho.java
 │   ├── Safra.java
 │   ├── Proprietario.java
-│   ├── 🆕 Ponto.java              # Sistema de pontos
-│   ├── 🆕 Chamado.java            # Sistema de chamados
-│   ├── 🆕 UserProfile.java        # Perfil de usuário
-│   └── 🆕 OperadorAuth.java       # Autenticação
+│   ├── Ponto.java
+│   ├── Chamado.java
+│   ├── Notificacao.java
+│   └── UserProfile.java
 │
 ├── dto/                            # Data Transfer Objects
-│   ├── 🆕 RegistroPontoRequest.java
-│   ├── 🆕 StatusOperadorResponse.java
-│   ├── 🆕 EstatisticasPontosResponse.java
-│   ├── 🆕 CriarChamadoRequest.java
-│   ├── 🆕 AtualizarChamadoRequest.java
-│   ├── 🆕 AdicionarObservacaoRequest.java
-│   └── 🆕 FotoUploadResponse.java
+│   ├── RegistroPontoRequest.java
+│   ├── StatusOperadorResponse.java
+│   ├── EstatisticasPontosResponse.java
+│   ├── CriarChamadoRequest.java
+│   ├── AtualizarChamadoRequest.java
+│   ├── AdicionarObservacaoRequest.java
+│   ├── FotoUploadResponse.java
+│   ├── CriarNotificacaoRequest.java
+│   └── NotificacaoBatchRequest.java
 │
 ├── repository/                     # Acesso ao Firestore
 │   ├── FazendaRepository.java
@@ -90,9 +89,10 @@ src/main/java/com/siga/
 │   ├── TrabalhoRepository.java
 │   ├── SafraRepository.java
 │   ├── ProprietarioRepository.java
-│   ├── 🆕 PontoRepository.java
-│   ├── 🆕 ChamadoRepository.java
-│   └── 🆕 UserProfileRepository.java
+│   ├── PontoRepository.java
+│   ├── ChamadoRepository.java
+│   ├── NotificacaoRepository.java
+│   └── UserProfileRepository.java
 │
 ├── service/                        # Lógica de negócio
 │   ├── FazendaService.java
@@ -102,12 +102,11 @@ src/main/java/com/siga/
 │   ├── TrabalhoService.java
 │   ├── SafraService.java
 │   ├── ProprietarioService.java
+│   ├── PontoService.java
+│   ├── ChamadoService.java
+│   ├── FotoService.java
 │   ├── NotificacaoService.java
-│   ├── SincronizacaoService.java
-│   ├── 🆕 PontoService.java       # Serviço de pontos
-│   ├── 🆕 ChamadoService.java     # Serviço de chamados
-│   ├── 🆕 FotoService.java        # Upload de fotos
-│   └── 🆕 AuthService.java        # Serviço de autenticação
+│   └── AuthService.java
 │
 ├── controller/                     # Endpoints REST
 │   ├── FazendaController.java
@@ -117,17 +116,50 @@ src/main/java/com/siga/
 │   ├── TrabalhoController.java
 │   ├── SafraController.java
 │   ├── ProprietarioController.java
+│   ├── PontoController.java
+│   ├── ChamadoController.java
 │   ├── NotificacaoController.java
-│   ├── SincronizacaoController.java
-│   ├── 🆕 PontoController.java    # Endpoints de pontos
-│   ├── 🆕 ChamadoController.java  # Endpoints de chamados
-│   └── 🆕 AuthController.java     # Endpoints de autenticação
+│   └── AuthController.java
 │
 ├── config/
 │   ├── FirebaseConfig.java
+│   ├── CorsConfig.java
 │   └── AsyncConfig.java
 │
-└── SigaApiApplication.java        # Aplicação principal
+└── SigaApiApplication.java
+```
+
+---
+
+## 🔐 AUTENTICAÇÃO E SEGURANÇA
+
+### Header Obrigatório
+
+**TODAS** as requisições precisam do header:
+```
+X-User-UID: {uid_do_firebase_auth}
+```
+
+### Roles do Sistema
+
+| Role | Descrição | Permissões |
+|------|-----------|------------|
+| `admin` | Administrador do site | Acesso total a todos os dados |
+| `user` | Usuário/Proprietário | Acessa apenas dados do seu proprietário |
+| `operador` | Operador de máquina | Acessa apenas seus próprios dados e do proprietário vinculado |
+
+### Fluxo de Autenticação
+
+```
+1. App faz login no Firebase Auth
+   ↓
+2. App obtém o UID do usuário
+   ↓
+3. App envia UID no header X-User-UID
+   ↓
+4. API valida no Firestore (userProfiles/{uid})
+   ↓
+5. API verifica role e aplica permissões
 ```
 
 ---
@@ -139,398 +171,86 @@ src/main/java/com/siga/
 http://localhost:8080/api/v1
 ```
 
----
-
 ### 📍 FAZENDAS
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/fazendas` | Lista todas as fazendas |
-| `GET` | `/fazendas/{id}` | Busca fazenda por ID |
-| `GET` | `/fazendas/proprietario/{proprietarioId}` | Busca fazendas de um proprietário |
-
----
+| Método | Endpoint | Descrição | Permissões |
+|--------|----------|-----------|------------|
+| `GET` | `/fazendas` | Lista fazendas | Admin: todas / User/Operador: só do proprietário |
+| `GET` | `/fazendas/{id}` | Busca fazenda por ID | Admin: qualquer / User/Operador: só do proprietário |
+| `GET` | `/fazendas/proprietario/{proprietarioId}` | Busca fazendas de um proprietário | Admin: qualquer / User/Operador: só o seu |
 
 ### 👨‍🌾 OPERADORES
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/operadores` | Lista todos os operadores |
-| `GET` | `/operadores/{id}` | Busca operador por ID |
-| `GET` | `/operadores/fazenda/{fazendaId}` | Busca operadores de uma fazenda |
-
-**🆕 Estrutura do Operador:**
-```json
-{
-  "id": "oper_123",
-  "nome": "João Silva",
-  "cpf": "123.456.789-00",
-  "telefone": "(11) 98765-4321",
-  "email": "joao@exemplo.com",
-  "fazendaIds": ["faz_001", "faz_002"],
-  "fazendaNomes": ["Fazenda São José", "Fazenda Santa Rita"],
-  "proprietarioId": "prop_001",
-  "proprietarioNome": "Empresa Agrícola LTDA",
-  "status": "ativo",
-  "especialidades": ["Plantio", "Colheita"],
-  "userId": "firebase_uid_abc123",  // 🆕 Vinculação com Firebase Auth
-  "dataCadastro": "2024-01-15T10:30:00Z"
-}
-```
-
----
+| Método | Endpoint | Descrição | Permissões |
+|--------|----------|-----------|------------|
+| `GET` | `/operadores` | Lista operadores | Admin: todos / User/Operador: só do proprietário |
+| `GET` | `/operadores/{id}` | Busca operador por ID | Admin: qualquer / User/Operador: só do proprietário |
+| `GET` | `/operadores/fazenda/{fazendaId}` | Busca operadores de uma fazenda | Filtrado por proprietário |
 
 ### 🚜 MÁQUINAS
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/maquinas` | Lista todas as máquinas |
-| `GET` | `/maquinas/{id}` | Busca máquina por ID |
-| `GET` | `/maquinas/fazenda/{fazendaId}` | Busca máquinas de uma fazenda |
-
----
+| Método | Endpoint | Descrição | Permissões |
+|--------|----------|-----------|------------|
+| `GET` | `/maquinas` | Lista máquinas | Admin: todas / User/Operador: filtrado via fazendas |
+| `GET` | `/maquinas/{id}` | Busca máquina por ID | Filtrado por proprietário |
+| `GET` | `/maquinas/fazenda/{fazendaId}` | Busca máquinas de uma fazenda | Filtrado por proprietário |
 
 ### 🌾 TALHÕES
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/talhoes` | Lista todos os talhões |
-| `GET` | `/talhoes/{id}` | Busca talhão por ID |
-| `GET` | `/talhoes/fazenda/{fazendaId}` | Busca talhões de uma fazenda |
-
----
+| Método | Endpoint | Descrição | Permissões |
+|--------|----------|-----------|------------|
+| `GET` | `/talhoes` | Lista talhões | Admin: todos / User/Operador: filtrado via fazendas |
+| `GET` | `/talhoes/{id}` | Busca talhão por ID | Filtrado por proprietário |
+| `GET` | `/talhoes/fazenda/{fazendaId}` | Busca talhões de uma fazenda | Filtrado por proprietário |
 
 ### 🚜 TRABALHOS
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/trabalhos` | Lista todos os trabalhos |
-| `GET` | `/trabalhos/{id}` | Busca trabalho por ID |
-| `GET` | `/trabalhos/fazenda/{fazendaId}` | Busca trabalhos de uma fazenda |
-
----
+| Método | Endpoint | Descrição | Permissões |
+|--------|----------|-----------|------------|
+| `GET` | `/trabalhos` | Lista trabalhos | Admin: todos / User/Operador: filtrado via fazendas |
+| `GET` | `/trabalhos/{id}` | Busca trabalho por ID | Filtrado por proprietário |
+| `GET` | `/trabalhos/fazenda/{fazendaId}` | Busca trabalhos de uma fazenda | Filtrado por proprietário |
+| `GET` | `/trabalhos/talhao/{talhaoId}` | Busca trabalhos de um talhão | Filtrado por proprietário |
+| `GET` | `/trabalhos/maquina/{maquinaId}` | Busca trabalhos de uma máquina | Filtrado por proprietário |
+| `GET` | `/trabalhos/operador/{operadorId}` | Busca trabalhos de um operador | Filtrado por proprietário |
+| `GET` | `/trabalhos/safra/{safraId}` | Busca trabalhos de uma safra | Filtrado por proprietário |
 
 ### 🌱 SAFRAS
 
+| Método | Endpoint | Descrição | Permissões |
+|--------|----------|-----------|------------|
+| `GET` | `/safras` | Lista safras | Admin: todas / User/Operador: só do proprietário |
+| `GET` | `/safras/{id}` | Busca safra por ID | Filtrado por proprietário |
+| `GET` | `/safras/proprietario/{proprietarioId}` | Busca safras de um proprietário | Filtrado por proprietário |
+
+### 🕐 REGISTRO DE PONTOS
+
+Sistema completo de registro de ponto eletrônico para operadores.
+
+#### Endpoints
+
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `GET` | `/safras` | Lista todas as safras |
-| `GET` | `/safras/{id}` | Busca safra por ID |
-| `GET` | `/safras/proprietario/{proprietarioId}` | Busca safras de um proprietário |
+| `POST` | `/pontos/registrar` | Registrar entrada/saída |
+| `GET` | `/pontos/status` | Status atual do operador |
+| `GET` | `/pontos/hoje` | Pontos de hoje |
+| `GET` | `/pontos/historico` | Histórico com filtros de data |
+| `GET` | `/pontos/estatisticas` | Estatísticas de horas trabalhadas |
+| `GET` | `/pontos/admin/proprietario/{id}` | Pontos por proprietário (admin) |
+| `PUT` | `/pontos/admin/{id}` | Atualizar ponto (admin) |
+| `DELETE` | `/pontos/admin/{id}` | Deletar ponto (admin) |
 
----
+#### Exemplo: Registrar Ponto
 
-### 🏢 PROPRIETÁRIOS
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/proprietarios` | Lista todos os proprietários |
-| `GET` | `/proprietarios/{id}` | Busca proprietário por ID |
-
----
-
-## 🆕 REGISTRO DE PONTOS
-
-Sistema completo de registro de ponto eletrônico para operadores com suporte a:
-- ✅ Múltiplos pontos no mesmo dia (entrada/saída)
-- ✅ Cálculo automático de duração
-- ✅ Captura de geolocalização (GPS)
-- ✅ Estatísticas de horas trabalhadas
-- ✅ Histórico completo
-
-### 📍 Endpoints de Pontos
-
-#### 1. **Registrar Ponto (Entrada ou Saída)**
 ```http
 POST /api/v1/pontos/registrar
-```
-
-**Headers:**
-```
 X-User-UID: firebase_uid_abc123
 Content-Type: application/json
 ```
 
-**Body:**
 ```json
 {
-  "tipo": "entrada",  // ou "saida"
-  "localizacao": {
-    "latitude": -23.550520,
-    "longitude": -46.633308,
-    "accuracy": 10.5,
-    "timestamp": 1700000000000
-  },
-  "fazendaId": "faz_001",  // opcional
-  "observacao": "Início do turno",  // opcional
-  "dispositivo": "Android 12",  // opcional
-  "versaoApp": "1.0.0"  // opcional
-}
-```
-
-**Response:**
-```json
-{
-  "id": "ponto_abc123",
   "tipo": "entrada",
-  "dataHora": "2024-11-24T07:00:00Z",
-  "mensagem": "Ponto registrado com sucesso"
-}
-```
-
----
-
-#### 2. **Status do Operador**
-```http
-GET /api/v1/pontos/status
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Response:**
-```json
-{
-  "pontoAberto": {
-    "id": "ponto_abc123",
-    "tipo": "entrada",
-    "dataHora": "2024-11-24T07:00:00Z",
-    "operadorNome": "João Silva"
-  },
-  "podeRegistrarEntrada": false,
-  "podeRegistrarSaida": true,
-  "pontosHoje": [...],
-  "horasTrabalhadasHoje": 5.5,
-  "totalRegistrosHoje": 4,
-  "ultimoPonto": {...}
-}
-```
-
----
-
-#### 3. **Pontos de Hoje**
-```http
-GET /api/v1/pontos/hoje
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Response:**
-```json
-[
-  {
-    "id": "ponto_001",
-    "tipo": "entrada",
-    "dataHora": "2024-11-24T07:00:00Z",
-    "operadorNome": "João Silva",
-    "localizacao": {
-      "latitude": -23.550520,
-      "longitude": -46.633308
-    }
-  },
-  {
-    "id": "ponto_002",
-    "tipo": "saida",
-    "dataHora": "2024-11-24T12:00:00Z",
-    "duracaoMinutos": 300,
-    "pontoEntradaId": "ponto_001"
-  }
-]
-```
-
----
-
-#### 4. **Histórico de Pontos**
-```http
-GET /api/v1/pontos/historico?dataInicio=2024-11-01&dataFim=2024-11-30
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Query Params:**
-- `dataInicio` (opcional): Data de início (formato: `yyyy-MM-dd`)
-- `dataFim` (opcional): Data de fim (formato: `yyyy-MM-dd`)
-
-**Response:** Array de pontos (mesmo formato de "Pontos de Hoje")
-
----
-
-#### 5. **Estatísticas de Pontos**
-```http
-GET /api/v1/pontos/estatisticas?dataInicio=2024-11-01&dataFim=2024-11-30
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Query Params:**
-- `dataInicio` (obrigatório): Data de início (formato: `yyyy-MM-dd`)
-- `dataFim` (obrigatório): Data de fim (formato: `yyyy-MM-dd`)
-
-**Response:**
-```json
-{
-  "totalPontos": 44,
-  "totalEntradas": 22,
-  "totalSaidas": 22,
-  "horasTrabalhadas": 176.5,
-  "diasTrabalhados": 22,
-  "mediaHorasDia": 8.02
-}
-```
-
----
-
-#### 6. **Pontos por Proprietário (Admin)**
-```http
-GET /api/v1/pontos/admin/proprietario/{proprietarioId}?dataInicio=2024-11-01&dataFim=2024-11-30
-```
-
-**Headers:**
-```
-X-User-UID: admin_uid_xyz
-```
-
-**Query Params:**
-- `dataInicio` (opcional): Data de início
-- `dataFim` (opcional): Data de fim
-
-**Response:** Array de pontos de todos os operadores do proprietário
-
----
-
-#### 7. **Atualizar Ponto (Admin)**
-```http
-PUT /api/v1/pontos/admin/{id}
-```
-
-**Headers:**
-```
-X-User-UID: admin_uid_xyz
-Content-Type: application/json
-```
-
-**Body:**
-```json
-{
-  "observacao": "Atualizado pelo admin",
-  "fazendaId": "faz_002"
-}
-```
-
----
-
-#### 8. **Deletar Ponto (Admin)**
-```http
-DELETE /api/v1/pontos/admin/{id}
-```
-
-**Headers:**
-```
-X-User-UID: admin_uid_xyz
-```
-
----
-
-## 🆕 AUTENTICAÇÃO
-
-### 📍 Endpoints de Autenticação
-
-#### 1. **Buscar Informações do Usuário Logado**
-```http
-GET /api/v1/auth/me
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Response:**
-```json
-{
-  "userProfile": {
-    "uid": "firebase_uid_abc123",
-    "displayName": "João Silva",
-    "email": "joao@exemplo.com",
-    "role": "operador",
-    "operadorId": "oper_123",
-    "proprietarioId": "prop_001"
-  },
-  "operador": {
-    "id": "oper_123",
-    "nome": "João Silva",
-    "cpf": "123.456.789-00",
-    "telefone": "(11) 98765-4321",
-    "fazendaIds": ["faz_001"],
-    "proprietarioId": "prop_001",
-    "status": "ativo"
-    }
-}
-```
-
----
-
-#### 2. **Validar Token**
-```http
-GET /api/v1/auth/validate
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Response:**
-```json
-{
-  "valido": true,
-  "mensagem": "Token válido"
-}
-```
-
----
-
-## 🆕 CHAMADOS (SUPORTE/MANUTENÇÃO)
-
-Sistema completo de chamados para operadores reportarem problemas com suporte a:
-- ✅ Diferentes tipos (manutenção, problema, suporte, outro)
-- ✅ Níveis de prioridade (baixa, média, alta, urgente)
-- ✅ Upload de fotos
-- ✅ Captura de geolocalização
-- ✅ Sistema de observações/comentários
-- ✅ Controle de status (aberto, em_andamento, resolvido, cancelado)
-
-### 📍 Endpoints de Chamados
-
-#### 1. **Criar Chamado**
-```http
-POST /api/v1/chamados
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-Content-Type: application/json
-```
-
-**Body:**
-```json
-{
-  "titulo": "Problema na colhedeira C-120",
-  "descricao": "A colhedeira está apresentando falha no motor",
-  "tipo": "manutencao",  // manutencao, problema, suporte, outro
-  "prioridade": "alta",   // baixa, media, alta, urgente
   "localizacao": {
     "latitude": -23.550520,
     "longitude": -46.633308,
@@ -538,179 +258,176 @@ Content-Type: application/json
     "timestamp": 1700000000000
   },
   "fazendaId": "faz_001",
-  "fazendaNome": "Fazenda São José",
-  "talhaoId": "tal_001",
-  "talhaoNome": "Talhão A",
-  "maquinaId": "maq_001",
-  "maquinaNome": "Colhedeira C-120",
-  "sincronizado": true
+  "observacao": "Início do turno"
 }
 ```
 
-**Response:**
+### 📞 CHAMADOS (SUPORTE/MANUTENÇÃO)
+
+Sistema completo de chamados para operadores e usuários reportarem problemas.
+
+#### Endpoints
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `POST` | `/chamados` | Criar chamado |
+| `GET` | `/chamados` | Listar chamados (filtrado por proprietário) |
+| `GET` | `/chamados/{id}` | Buscar chamado específico |
+| `PUT` | `/chamados/{id}` | Atualizar chamado (admin) |
+| `POST` | `/chamados/{id}/observacoes` | Adicionar observação |
+| `POST` | `/chamados/{id}/fotos` | Upload de foto |
+| `DELETE` | `/chamados/{id}` | Deletar chamado |
+| `GET` | `/chamados/admin/proprietario/{id}` | Chamados por proprietário (admin) |
+
+#### Exemplo: Criar Chamado
+
+```http
+POST /api/v1/chamados
+X-User-UID: firebase_uid_abc123
+Content-Type: application/json
+```
+
 ```json
 {
-  "id": "chamado_abc123",
   "titulo": "Problema na colhedeira C-120",
-  "status": "aberto",
-  "dataCriacao": "2024-11-24T14:30:00Z",
-  "mensagem": "Chamado criado com sucesso"
-}
-```
-
----
-
-#### 2. **Listar Chamados**
-```http
-GET /api/v1/chamados?status=aberto&tipo=manutencao&prioridade=alta
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Query Params (todos opcionais):**
-- `operadorId`: ID do operador (apenas para admin)
-- `status`: aberto, em_andamento, resolvido, cancelado
-- `tipo`: manutencao, problema, suporte, outro
-- `prioridade`: baixa, media, alta, urgente
-
-**Response:**
-```json
-[
-  {
-    "id": "chamado_001",
-    "operadorId": "oper_123",
-    "operadorNome": "João Silva",
-    "titulo": "Problema na colhedeira",
-    "descricao": "...",
-    "tipo": "manutencao",
-    "prioridade": "alta",
-    "status": "aberto",
-    "dataHoraRegistro": "2024-11-24T14:30:00Z",
-    "localizacao": {...},
-    "fotos": [],
-    "observacoes": []
-  }
-]
-```
-
----
-
-#### 3. **Buscar Chamado Específico**
-```http
-GET /api/v1/chamados/{id}
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Response:**
-```json
-{
-  "id": "chamado_001",
-  "operadorId": "oper_123",
-  "operadorNome": "João Silva",
-  "titulo": "Problema na colhedeira",
   "descricao": "A colhedeira está apresentando falha no motor",
   "tipo": "manutencao",
   "prioridade": "alta",
-  "status": "em_andamento",
-  "dataHoraRegistro": "2024-11-24T14:30:00Z",
-  "dataHoraEnvio": "2024-11-24T14:32:00Z",
   "localizacao": {
     "latitude": -23.550520,
-    "longitude": -46.633308
+    "longitude": -46.633308,
+    "accuracy": 10.5
   },
-  "fotos": [
-    "https://storage.googleapis.com/.../foto1.jpg",
-    "https://storage.googleapis.com/.../foto2.jpg"
-  ],
+  "fazendaId": "faz_001",
   "fazendaNome": "Fazenda São José",
-  "maquinaNome": "Colhedeira C-120",
-  "responsavelId": "user_456",
-  "responsavelNome": "Carlos Admin",
-  "observacoes": [
-    {
-      "texto": "Equipe a caminho",
-      "autor": "Carlos Admin",
-      "autorId": "user_456",
-      "data": "2024-11-24T15:00:00Z"
-    }
-  ],
-  "proprietarioId": "prop_001"
+  "maquinaId": "maq_001",
+  "maquinaNome": "Colhedeira C-120"
 }
+```
+
+**Tipos de Chamado:** `manutencao`, `problema`, `suporte`, `outro`  
+**Prioridades:** `baixa`, `media`, `alta`, `urgente`  
+**Status:** `aberto`, `em_andamento`, `resolvido`, `cancelado`
+
+### 🔔 NOTIFICAÇÕES
+
+Sistema completo de notificações em tempo real.
+
+#### Endpoints
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/notificacoes` | Listar todas do usuário |
+| `GET` | `/notificacoes/nao-lidas` | Listar não lidas |
+| `GET` | `/notificacoes/count` | Contar não lidas |
+| `POST` | `/notificacoes` | Criar notificação |
+| `PUT` | `/notificacoes/{id}/lida` | Marcar como lida |
+| `PUT` | `/notificacoes/lidas` | Marcar todas como lidas |
+| `DELETE` | `/notificacoes/{id}` | Deletar notificação |
+| `POST` | `/notificacoes/batch` | Enviar para múltiplos (admin) |
+
+#### Tipos de Notificação
+
+| Tipo | Descrição | Cor sugerida |
+|------|-----------|--------------|
+| `info` | Informação geral | 🔵 Azul |
+| `sucesso` | Ação concluída | 🟢 Verde |
+| `alerta` | Atenção necessária | 🟡 Amarelo |
+| `erro` | Problema/erro | 🔴 Vermelho |
+
+#### Categorias
+
+| Categoria | Descrição |
+|-----------|-----------|
+| `chamado` | Relacionado a chamados |
+| `sistema` | Notificação do sistema |
+| `ponto` | Relacionado a pontos |
+| `geral` | Geral |
+
+**Regra Especial:** Se `userId` for `"admin"` ao criar notificação, a API cria uma notificação para **todos** os usuários com role "admin".
+
+### 🔐 AUTENTICAÇÃO
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/auth/me` | Informações do usuário logado |
+| `GET` | `/auth/validate` | Validar token |
+
+---
+
+## 🔒 FILTRO POR PROPRIETÁRIO
+
+### Conceito
+
+A API implementa **filtro de segurança por `proprietarioId`** para garantir que usuários só vejam dados do seu proprietário.
+
+### Regras de Acesso
+
+| Role | Comportamento |
+|------|---------------|
+| **Admin** | Vê **TODOS** os dados (pode filtrar com `?proprietarioId=xxx`) |
+| **User** | Vê apenas dados do **SEU proprietário** |
+| **Operador** | Vê apenas dados do **proprietário do seu operador** |
+
+### Filtro Direto vs Indireto
+
+#### Filtro Direto (tem `proprietarioId`)
+- ✅ Fazendas
+- ✅ Operadores
+- ✅ Safras
+- ✅ Chamados
+
+#### Filtro Indireto (via Fazendas)
+- ⚠️ Talhões → filtrado via `fazendaId`
+- ⚠️ Máquinas → filtrado via `fazendaIds[]`
+- ⚠️ Trabalhos → filtrado via `fazendaId`
+
+**Como funciona o filtro indireto:**
+1. API busca fazendas do proprietário
+2. Extrai IDs das fazendas
+3. Busca recursos através das fazendas
+4. Retorna recursos filtrados
+
+**Limitação Firestore:** `whereIn()` aceita máximo 10 itens, então processamos em lotes de 10.
+
+### Exemplo de Fluxo
+
+```
+1. Usuário solicita GET /api/v1/talhoes
+   Header: X-User-UID: uid_usuario
+   
+2. API identifica proprietarioId do usuário
+   → proprietarioId = "CCnyN3MpHq5XRtnl8VFV"
+   
+3. API busca fazendas do proprietário
+   → 3 fazendas encontradas
+   
+4. API extrai IDs das fazendas
+   → fazendaIds = ["fazenda_1", "fazenda_2", "fazenda_3"]
+   
+5. API busca talhões onde fazendaId IN fazendaIds
+   → Processa em lotes de 10 (se necessário)
+   
+6. API retorna talhões filtrados
+   → Apenas talhões das fazendas do proprietário
 ```
 
 ---
 
-#### 4. **Atualizar Chamado (Admin)**
-```http
-PUT /api/v1/chamados/{id}
-```
+## 📸 UPLOAD DE FOTOS (ImgBB)
 
-**Headers:**
-```
-X-User-UID: admin_uid_xyz
-Content-Type: application/json
-```
+### Configuração
 
-**Body:**
-```json
-{
-  "status": "em_andamento",
-  "responsavelId": "user_456",
-  "responsavelNome": "Carlos Admin",
-  "prioridade": "urgente"
-}
-```
+As fotos são armazenadas no **ImgBB** (100% gratuito):
+- ✅ 32 MB por imagem
+- ✅ Armazenamento ilimitado
+- ✅ Sem expiração
+- ✅ CDN global
 
-**Response:**
-```json
-{
-  "mensagem": "Chamado atualizado com sucesso"
-}
-```
+### Endpoint
 
----
-
-#### 5. **Adicionar Observação**
-```http
-POST /api/v1/chamados/{id}/observacoes
-```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-Content-Type: application/json
-```
-
-**Body:**
-```json
-{
-  "observacao": "Problema resolvido. Troca de correia realizada."
-}
-```
-
-**Response:**
-```json
-{
-  "mensagem": "Observação adicionada com sucesso"
-}
-```
-
----
-
-#### 6. **Upload de Foto**
 ```http
 POST /api/v1/chamados/{id}/fotos
-```
-
-**Headers:**
-```
 X-User-UID: firebase_uid_abc123
 Content-Type: multipart/form-data
 ```
@@ -723,197 +440,154 @@ foto: [arquivo de imagem]
 **Response:**
 ```json
 {
-  "url": "https://storage.googleapis.com/bucket/chamados/chamado_123/foto_abc.jpg",
-  "fotoId": "foto_abc123"
+  "url": "https://i.ibb.co/abc123/chamado_001_1700000000.jpg",
+  "fotoId": "uuid-gerado"
 }
 ```
 
----
+### Fluxo do Upload
 
-#### 7. **Deletar Chamado**
-```http
-DELETE /api/v1/chamados/{id}
 ```
-
-**Headers:**
-```
-X-User-UID: firebase_uid_abc123
-```
-
-**Regras:**
-- Operador: Apenas chamados com status "aberto" e criados por ele
-- Admin: Qualquer chamado
-
-**Response:**
-```json
-{
-  "mensagem": "Chamado deletado com sucesso"
-}
+1. App captura/seleciona foto
+   ↓
+2. App envia para API (multipart/form-data)
+   ↓
+3. API recebe e valida (max 32MB, apenas imagens)
+   ↓
+4. API converte para Base64
+   ↓
+5. API envia para ImgBB
+   ↓
+6. ImgBB retorna URL pública
+   ↓
+7. API salva URL no array "fotos" do chamado
+   ↓
+8. API retorna URL para o App
 ```
 
 ---
 
-#### 8. **Chamados por Proprietário (Admin)**
-```http
-GET /api/v1/chamados/admin/proprietario/{proprietarioId}?status=aberto
+## 🔔 SISTEMA DE NOTIFICAÇÕES
+
+### Notificações Automáticas
+
+Quando ações ocorrem nos chamados, notificações são criadas automaticamente:
+
 ```
+OPERADOR CRIA CHAMADO
+  → Notifica TODOS os admins
+  → Tipo: "alerta" se urgente, "info" se não
 
-**Headers:**
-```
-X-User-UID: admin_uid_xyz
-```
+ADMIN ASSUME CHAMADO (status → em_andamento)
+  → Notifica OPERADOR que criou
+  → Título: "Chamado em Atendimento"
 
-**Query Params (todos opcionais):**
-- `status`: Filtrar por status
-- `tipo`: Filtrar por tipo
-- `prioridade`: Filtrar por prioridade
+ADMIN RESPONDE CHAMADO (adiciona observação)
+  → Notifica OPERADOR
+  → Título: "Chamado Respondido"
 
-**Response:** Array de chamados do proprietário
-
----
-
-## 🔐 ESTRUTURA DE DADOS - PONTO
-
-### Estrutura do Ponto no Firestore
-
-**Coleção:** `pontos`
-
-```json
-{
-  "id": "ponto_abc123",
-  "operadorId": "oper_123",
-  "operadorNome": "João Silva",
-  "userId": "firebase_uid_abc123",
-  "tipo": "entrada",  // ou "saida"
-  "dataHora": "2024-11-24T07:00:00Z",
-  "localizacao": {
-    "latitude": -23.550520,
-    "longitude": -46.633308,
-    "accuracy": 10.5,
-    "timestamp": 1700000000000
-  },
-  "fazendaId": "faz_001",
-  "fazendaNome": "Fazenda São José",
-  "observacao": "Início do turno",
-  "proprietarioId": "prop_001",
-  "pontoEntradaId": "ponto_001",  // apenas em saída
-  "duracaoMinutos": 300,  // calculado automaticamente em saída
-  "dataCriacao": "2024-11-24T07:00:05Z",
-  "dispositivo": "Android 12",
-  "versaoApp": "1.0.0"
-}
+ADMIN RESOLVE CHAMADO (status → resolvido)
+  → Notifica OPERADOR
+  → Título: "Chamado Resolvido"
+  → Tipo: "sucesso"
 ```
 
 ---
 
-## 🔐 ESTRUTURA DE DADOS - USER PROFILE
+## 🌐 CONFIGURAÇÃO DE REDE
 
-### Estrutura do UserProfile no Firestore
+### Para Desenvolvimento
 
-**Coleção:** `userProfiles`
+A API está configurada para aceitar conexões de qualquer dispositivo na rede local:
 
-**Documento ID:** UID do Firebase Auth
-
-```json
-{
-  "uid": "firebase_uid_abc123",
-  "displayName": "João Silva",
-  "email": "joao@exemplo.com",
-  "photoURL": "https://...",
-  "role": "operador",  // 'admin', 'user' ou 'operador'
-  "phone": "(11) 98765-4321",
-  "bio": "Operador de máquinas agrícolas",
-  "permissao": "editor",  // apenas para role 'user'
-  "proprietarioId": "prop_001",
-  "operadorId": "oper_123",  // vinculação com operadores
-  "mustChangePassword": false,
-  "createdAt": "2024-01-15T10:30:00Z",
-  "updatedAt": "2024-11-24T08:00:00Z"
-}
+**Arquivo `application.properties`:**
+```properties
+server.address=0.0.0.0
+server.port=8080
 ```
 
----
+**Arquivo `CorsConfig.java`:**
+- Permite requisições de `localhost`, redes locais (`192.168.*.*`, `10.*.*.*`, `172.16-31.*.*`) e `exp://*` (Expo Go)
 
-## 🔄 FLUXO DE AUTENTICAÇÃO
+### Configuração do App
 
-### 1. **Login no App (Firebase Auth)**
-```
-App → Firebase Auth → Retorna UID
-```
+Crie um arquivo `config/api.js` no app:
 
-### 2. **Requisições à API**
-```
-App envia UID no header 'X-User-UID' → API valida → Retorna dados
-```
+```javascript
+// ⚠️ ALTERE PARA O IP DO SEU COMPUTADOR
+const DEV_API_IP = '192.168.3.74'; // Use ipconfig para descobrir
+const DEV_API_PORT = '8080';
 
-### 3. **Validação na API**
-```java
-@GetMapping("/pontos/status")
-public ResponseEntity<?> getStatus(@RequestHeader("X-User-UID") String uid) {
-    // API busca UserProfile pelo UID
-    // Valida role = 'operador'
-    // Busca Operador vinculado
-    // Retorna dados do operador
-}
+const getApiUrl = () => {
+  if (__DEV__) {
+    return `http://${DEV_API_IP}:${DEV_API_PORT}/api/v1`;
+  } else {
+    return 'https://sua-api-producao.com/api/v1';
+  }
+};
+
+export const API_URL = getApiUrl();
 ```
 
----
+### Descobrir IP Local
 
-## 🎯 LÓGICA DE REGISTRO DE PONTOS
+**Windows:**
+```powershell
+ipconfig
+```
+Procure por `IPv4 Address` na conexão ativa.
 
-### Fluxo de Entrada
-```
-1. Operador clica em "Registrar Entrada"
-2. App captura GPS (opcional)
-3. App envia POST /api/v1/pontos/registrar com tipo="entrada"
-4. API verifica se não há ponto aberto
-5. API registra ponto de entrada
-6. Retorna sucesso
-```
-
-### Fluxo de Saída
-```
-1. Operador clica em "Registrar Saída"
-2. App captura GPS (opcional)
-3. App envia POST /api/v1/pontos/registrar com tipo="saida"
-4. API verifica se há ponto de entrada aberto
-5. API busca ponto de entrada
-6. API calcula duração (saída - entrada)
-7. API registra ponto de saída vinculado à entrada
-8. Retorna sucesso com duração calculada
+**Mac/Linux:**
+```bash
+ifconfig
+# ou
+ip addr
 ```
 
-### Regras de Negócio
-- ✅ **Entrada** só pode ser registrada se NÃO houver ponto aberto
-- ✅ **Saída** só pode ser registrada se HOUVER ponto aberto
-- ✅ Duração é calculada automaticamente na saída
-- ✅ Sistema permite múltiplos pares entrada-saída no mesmo dia
-- ✅ Localização é opcional (capturada se disponível)
+### Requisitos
+
+1. **Computador com a API** deve estar ligado e com a API rodando
+2. **Dispositivo (celular/PC)** deve estar na **mesma rede Wi-Fi**
+3. **IP da API** deve estar correto no app
+4. **Firewall** não pode estar bloqueando a porta 8080
+
+**Importante:** Não precisa cadastrar cada dispositivo. Qualquer dispositivo na mesma rede Wi-Fi pode acessar a API.
 
 ---
 
 ## 🚀 COMO EXECUTAR
 
-### 1. **Pré-requisitos**
+### 1. Pré-requisitos
+
 - Java 17+
 - Maven
 - Conta Firebase (Firestore habilitado)
 
-### 2. **Configuração Firebase**
+### 2. Configuração Firebase
+
 1. Crie um projeto no [Firebase Console](https://console.firebase.google.com)
 2. Ative **Firestore Database**
 3. Ative **Authentication** (Email/Password)
 4. Baixe o arquivo `firebase-credentials.json` (Admin SDK)
 5. Coloque em `src/main/resources/firebase-credentials.json`
 
-### 3. **Configurar application.properties**
+### 3. Configurar application.properties
+
 ```properties
 # src/main/resources/application.properties
 spring.application.name=SIGA-API
 server.port=8080
+server.address=0.0.0.0
+
+# Firebase
+firebase.project-id=seu-projeto-id
+firebase.credentials.path=src/main/resources/firebase-credentials.json
+
+# Upload de fotos (ImgBB - GRATUITO)
+imgbb.api.key=sua-chave-imgbb
 ```
 
-### 4. **Executar o Projeto**
+### 4. Executar o Projeto
 
 **Via Maven:**
 ```bash
@@ -926,7 +600,8 @@ mvn clean package
 java -jar target/SIGA-API-0.0.1-SNAPSHOT.jar
 ```
 
-### 5. **Verificar**
+### 5. Verificar
+
 ```bash
 curl http://localhost:8080/api/v1/fazendas
 ```
@@ -935,22 +610,28 @@ curl http://localhost:8080/api/v1/fazendas
 
 ## 📱 INTEGRAÇÃO COM APP MOBILE
 
-### 1. **Autenticação no App**
-```javascript
-// Firebase Auth Login
+### 1. Autenticação no App
+
+```typescript
+import auth from '@react-native-firebase/auth';
+
+// Login
 const userCredential = await signInWithEmailAndPassword(auth, email, password);
 const uid = userCredential.user.uid;
 
 // Salvar UID para usar nas requisições
-localStorage.setItem('userUID', uid);
+await AsyncStorage.setItem('userUID', uid);
 ```
 
-### 2. **Fazer Requisições à API**
-```javascript
-// Exemplo: Registrar Entrada
-const uid = localStorage.getItem('userUID');
+### 2. Fazer Requisições à API
 
-const response = await fetch('http://localhost:8080/api/v1/pontos/registrar', {
+```typescript
+import { API_URL } from './config/api';
+
+// Exemplo: Registrar Entrada
+const uid = await AsyncStorage.getItem('userUID');
+
+const response = await fetch(`${API_URL}/pontos/registrar`, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -961,227 +642,175 @@ const response = await fetch('http://localhost:8080/api/v1/pontos/registrar', {
     localizacao: {
       latitude: -23.550520,
       longitude: -46.633308
-    },
-    dispositivo: 'Android 12',
-    versaoApp: '1.0.0'
+    }
   })
 });
 
 const data = await response.json();
-console.log('Ponto registrado:', data);
 ```
 
-### 3. **Exemplo Completo: Buscar Status**
-```javascript
-const uid = localStorage.getItem('userUID');
+### 3. Upload de Foto
 
-const response = await fetch('http://localhost:8080/api/v1/pontos/status', {
-  method: 'GET',
-  headers: {
-    'X-User-UID': uid
-  }
+```typescript
+import * as ImagePicker from 'expo-image-picker';
+
+// Capturar foto
+const result = await ImagePicker.launchCameraAsync({
+  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  quality: 0.8
 });
 
-const status = await response.json();
+// Preparar FormData
+const formData = new FormData();
+formData.append('foto', {
+  uri: result.assets[0].uri,
+  type: 'image/jpeg',
+  name: 'foto.jpg',
+} as any);
 
-console.log('Ponto aberto:', status.pontoAberto);
-console.log('Pode registrar entrada:', status.podeRegistrarEntrada);
-console.log('Horas trabalhadas hoje:', status.horasTrabalhadasHoje);
+// Enviar para API
+const response = await fetch(`${API_URL}/chamados/${chamadoId}/fotos`, {
+  method: 'POST',
+  headers: {
+    'X-User-UID': uid,
+  },
+  body: formData,
+});
+
+const data = await response.json();
+console.log('URL da foto:', data.url);
 ```
 
 ---
 
-## 🔐 CONFIGURAÇÃO FIRESTORE SECURITY RULES
+## 🗄️ ESTRUTURA DO FIRESTORE
 
-Para garantir segurança, configure as regras do Firestore:
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // Função auxiliar: verifica se está autenticado
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    // Função auxiliar: verifica se é admin
-    function isAdmin() {
-      return isAuthenticated() && 
-             get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Função auxiliar: verifica se é o próprio operador
-    function isOperadorDoPonto() {
-      return isAuthenticated() && 
-             request.auth.uid == resource.data.userId;
-    }
-    
-    // Regras para pontos
-    match /pontos/{pontoId} {
-      // Leitura: admin, usuário com permissão, ou próprio operador
-      allow read: if isAuthenticated() && (
-        isAdmin() || isOperadorDoPonto()
-      );
-      
-      // Criação: operador autenticado
-      allow create: if isAuthenticated() && 
-                     request.resource.data.userId == request.auth.uid &&
-                     request.resource.data.tipo in ['entrada', 'saida'];
-      
-      // Atualização/Exclusão: apenas admin
-      allow update, delete: if isAdmin();
-    }
-    
-    // Regras para userProfiles
-    match /userProfiles/{uid} {
-      allow read: if isAuthenticated() && (request.auth.uid == uid || isAdmin());
-      allow write: if isAdmin();
-    }
-    
-    // Regras para operadores
-    match /operadores/{operadorId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    }
-}
-```
-
----
-
-## 📊 ESTRUTURA DE COLEÇÕES NO FIRESTORE
+### Collections
 
 ```
 📦 Firestore Database
 ├── 📁 fazendas/
-├── 📁 operadores/          # ✅ Atualizado com userId
+│   └── {fazendaId}
+│       ├── proprietarioId: string ✅
+│       ├── nome: string
+│       └── ...
+│
+├── 📁 operadores/
+│   └── {operadorId}
+│       ├── proprietarioId: string ✅
+│       ├── userId: string
+│       └── ...
+│
 ├── 📁 maquinas/
+│   └── {maquinaId}
+│       ├── fazendaIds: string[] ⚠️ (filtro indireto)
+│       └── ...
+│
 ├── 📁 talhoes/
+│   └── {talhaoId}
+│       ├── fazendaId: string ⚠️ (filtro indireto)
+│       └── ...
+│
 ├── 📁 trabalhos/
+│   └── {trabalhoId}
+│       ├── fazendaId: string ⚠️ (filtro indireto)
+│       └── ...
+│
 ├── 📁 safras/
-├── 📁 proprietarios/
-├── 📁 🆕 pontos/          # Sistema de pontos
-├── 📁 🆕 userProfiles/    # Perfis de usuário
-└── 📁 🆕 userProprietarios/  # Associações user-proprietario
+│   └── {safraId}
+│       ├── proprietarioId: string ✅
+│       └── ...
+│
+├── 📁 pontos/
+│   └── {pontoId}
+│       ├── userId: string
+│       ├── operadorId: string
+│       ├── proprietarioId: string ✅
+│       ├── tipo: "entrada" | "saida"
+│       └── ...
+│
+├── 📁 chamados/
+│   └── {chamadoId}
+│       ├── userId: string
+│       ├── operadorId: string
+│       ├── proprietarioId: string ✅
+│       ├── status: "aberto" | "em_andamento" | "resolvido" | "cancelado"
+│       ├── fotos: string[]
+│       ├── observacoes: Observacao[]
+│       └── ...
+│
+├── 📁 notificacoes/
+│   └── {notificacaoId}
+│       ├── userId: string
+│       ├── titulo: string
+│       ├── mensagem: string
+│       ├── tipo: "info" | "sucesso" | "alerta" | "erro"
+│       ├── categoria: "chamado" | "sistema" | "ponto" | "geral"
+│       ├── lida: boolean
+│       └── ...
+│
+└── 📁 userProfiles/
+    └── {uid}
+        ├── role: "admin" | "user" | "operador"
+        ├── proprietarioId: string
+        ├── operadorId: string (se role = "operador")
+        └── ...
 ```
 
----
+### Legenda
 
-## 🎯 PRÓXIMOS PASSOS PARA O APP MOBILE
-
-### 1. **Criar Tela de Login**
-- Login com Firebase Auth (Email/Password)
-- Salvar UID do usuário
-- Validar role = 'operador'
-- Redirecionar para tela de registro de pontos
-
-### 2. **Criar Tela de Registro de Pontos**
-- Botão "Registrar Entrada" (verde)
-- Botão "Registrar Saída" (vermelho)
-- Card com status atual (ponto aberto/fechado)
-- Card com horas trabalhadas hoje
-- Histórico de pontos do dia
-
-### 3. **Implementar Captura de GPS**
-```javascript
-// Exemplo: Capturar localização
-navigator.geolocation.getCurrentPosition(
-  (position) => {
-    const localizacao = {
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      accuracy: position.coords.accuracy,
-      timestamp: Date.now()
-    };
-    
-    // Usar na requisição
-  },
-  (error) => {
-    console.error('Erro ao capturar GPS:', error);
-    // Registrar ponto sem localização
-  },
-  { enableHighAccuracy: true, timeout: 10000 }
-);
-```
-
-### 4. **Validar Permissões**
-- Solicitar permissão de localização no primeiro uso
-- Mostrar mensagem se permissão negada
-- Permitir registro mesmo sem GPS
-
-### 5. **Tratamento de Erros**
-```javascript
-try {
-  const response = await fetch('...');
-  
-  if (!response.ok) {
-    const error = await response.json();
-    alert(error.erro);
-    return;
-  }
-  
-  const data = await response.json();
-  // Sucesso
-  
-} catch (error) {
-  console.error('Erro:', error);
-  alert('Erro ao conectar com servidor');
-}
-```
+- ✅ **Filtro Direto**: Recurso tem `proprietarioId` diretamente
+- ⚠️ **Filtro Indireto**: Recurso é filtrado via fazendas (não tem `proprietarioId`)
 
 ---
 
 ## 🐛 TROUBLESHOOTING
 
 ### Erro: "UserProfile não encontrado"
-**Causa:** Operador não tem login criado no Firebase  
-**Solução:** Criar UserProfile no Firestore vinculando operadorId
+**Causa:** Usuário não tem perfil criado no Firestore  
+**Solução:** Criar UserProfile no Firestore vinculando `proprietarioId` e `role`
 
-### Erro: "Operador não está ativo"
-**Causa:** Status do operador é 'inativo'  
-**Solução:** Alterar status para 'ativo' no Firestore
+### Erro: "Network Error" ou "Failed to fetch"
+**Causas possíveis:**
+- API não está rodando → Execute `mvn spring-boot:run`
+- IP errado no app → Verifique seu IP com `ipconfig`
+- Firewall bloqueando → Libere a porta 8080 no Windows Defender
+- Redes diferentes → Conecte o celular na mesma rede Wi-Fi
 
-### Erro: "Já existe um ponto de entrada aberto"
-**Causa:** Operador tentou registrar entrada com ponto já aberto  
-**Solução:** Registrar saída primeiro
+### Erro: "CORS" ou "Access-Control-Allow-Origin"
+**Causa:** Configuração CORS incorreta  
+**Solução:** Verifique se `CorsConfig.java` existe e reinicie a API
 
-### Erro: "Não há ponto de entrada aberto"
-**Causa:** Operador tentou registrar saída sem entrada aberta  
-**Solução:** Registrar entrada primeiro
+### Erro: "Usuário não possui proprietário associado"
+**Causa:** UserProfile não tem `proprietarioId`  
+**Solução:** Adicione `proprietarioId` ao UserProfile no Firestore
 
----
-
-## 📞 SUPORTE
-
-Para dúvidas ou problemas:
-1. Verificar logs do console da API
-2. Verificar se Firebase está configurado corretamente
-3. Verificar se o operador tem UserProfile criado
-4. Verificar se o status do operador é 'ativo'
+### Erro: "Acesso negado a este chamado"
+**Causa:** Tentando acessar chamado de outro proprietário  
+**Solução:** Verifique se o chamado pertence ao seu `proprietarioId`
 
 ---
 
 ## 📝 CHANGELOG
 
-### v2.0.0 (2024-11-24) - Sistema de Pontos
-- ✅ Adicionado sistema completo de registro de pontos
+### v3.0.0 (2024-11-27) - Sistema Completo
+- ✅ Sistema de notificações implementado
+- ✅ Filtro de segurança por proprietário
+- ✅ Upload de fotos via ImgBB
+- ✅ Configuração de rede para dispositivos móveis
+- ✅ Filtro indireto para Talhões, Máquinas e Trabalhos
+- ✅ Validações completas de acesso
+
+### v2.0.0 (2024-11-24) - Sistema de Pontos e Chamados
+- ✅ Sistema completo de registro de pontos
+- ✅ Sistema de chamados com upload de fotos
 - ✅ Autenticação com Firebase Auth
-- ✅ Vinculação Operador ↔ UserProfile
 - ✅ Suporte a geolocalização (GPS)
 - ✅ Cálculo automático de duração
 - ✅ Estatísticas de horas trabalhadas
-- ✅ Endpoints para admin e operador
-- ✅ Documentação completa atualizada
 
 ### v1.0.0 (2024-01-01) - Versão Inicial
-- ✅ CRUD de Fazendas
-- ✅ CRUD de Operadores
-- ✅ CRUD de Máquinas
-- ✅ CRUD de Talhões
-- ✅ CRUD de Trabalhos
-- ✅ CRUD de Safras
-- ✅ CRUD de Proprietários
+- ✅ CRUD de Fazendas, Operadores, Máquinas, Talhões, Trabalhos, Safras
 - ✅ Integração com Firebase Firestore
 
 ---
