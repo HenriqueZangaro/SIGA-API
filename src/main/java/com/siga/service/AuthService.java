@@ -1,5 +1,6 @@
 package com.siga.service;
 
+import com.siga.dto.UserMeResponse;
 import com.siga.model.Operador;
 import com.siga.model.UserProfile;
 import com.siga.repository.OperadorRepository;
@@ -19,11 +20,15 @@ public class AuthService {
 
     private final UserProfileRepository userProfileRepository;
     private final OperadorRepository operadorRepository;
+    private final UserService userService;
 
     @Autowired
-    public AuthService(UserProfileRepository userProfileRepository, OperadorRepository operadorRepository) {
+    public AuthService(UserProfileRepository userProfileRepository, 
+                      OperadorRepository operadorRepository,
+                      UserService userService) {
         this.userProfileRepository = userProfileRepository;
         this.operadorRepository = operadorRepository;
+        this.userService = userService;
     }
 
     /**
@@ -192,6 +197,45 @@ public class AuthService {
      */
     public UserProfile getUserProfile(String uid) {
         return userProfileRepository.findByUid(uid);
+    }
+
+    /**
+     * Obtém dados completos do usuário (novo método que usa UserService)
+     * Recomendado usar este ao invés de getOperadorInfo para novos desenvolvimentos
+     */
+    public UserMeResponse getUserCompleteData(String uid) {
+        return userService.getUserMeData(uid);
+    }
+
+    /**
+     * Verifica se o usuário tem uma permissão específica
+     */
+    public boolean hasPermission(String uid, String requiredPermission) {
+        UserProfile userProfile = userProfileRepository.findByUid(uid);
+        
+        if (userProfile == null) {
+            return false;
+        }
+        
+        // Admin sempre tem todas as permissões
+        if ("admin".equalsIgnoreCase(userProfile.getRole())) {
+            return true;
+        }
+        
+        // Verificar permissão específica
+        String userPermission = userProfile.getPermissao();
+        if (userPermission == null) {
+            return false;
+        }
+        
+        // Hierarquia de permissões: dono > admin > editor > visualizador
+        return switch (requiredPermission.toLowerCase()) {
+            case "visualizador" -> userPermission.matches("(?i)(dono|admin|editor|visualizador)");
+            case "editor" -> userPermission.matches("(?i)(dono|admin|editor)");
+            case "admin" -> userPermission.matches("(?i)(dono|admin)");
+            case "dono" -> userPermission.matches("(?i)(dono)");
+            default -> false;
+        };
     }
 }
 
